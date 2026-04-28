@@ -1,0 +1,36 @@
+{
+  "name": "nq2am",
+  "version": "0.1.0",
+  "description": "Normalize QQ Music and NetEase Cloud Music playlists for future Apple Music matching.",
+  "type": "module",
+  "bin": {
+    "nq2am": "./dist/src/cli.js"
+  },
+  "exports": {
+    ".": "./dist/src/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "cli": "node dist/src/cli.js",
+    "test": "pnpm run build && node --test dist/tests/*.test.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "qq-music",
+    "netease-cloud-music",
+    "apple-music",
+    "playlist"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

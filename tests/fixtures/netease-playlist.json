@@ -1,0 +1,42 @@
+{
+  "playlist": {
+    "id": 54321,
+    "name": "NetEase Fixture Playlist",
+    "coverImgUrl": "https://example.com/netease-cover.jpg",
+    "tracks": [
+      {
+        "id": 1001,
+        "name": "名前のない怪物",
+        "ar": [
+          {
+            "name": "EGOIST"
+          }
+        ],
+        "al": {
+          "name": "名前のない怪物",
+          "picUrl": "https://example.com/monster.jpg",
+          "artists": [
+            {
+              "name": "EGOIST"
+            }
+          ]
+        }
+      },
+      {
+        "id": 1002,
+        "name": "紅蓮華",
+        "artists": [
+          {
+            "name": "LiSA"
+          }
+        ],
+        "album": {
+          "name": "紅蓮華",
+          "artist": {
+            "name": "LiSA"
+          }
+        }
+      }
+    ]
+  }
+}

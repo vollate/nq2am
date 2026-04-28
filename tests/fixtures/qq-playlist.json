@@ -1,0 +1,38 @@
+{
+  "cdlist": [
+    {
+      "disstid": "12345",
+      "dissname": "QQ Fixture Playlist",
+      "logo": "https://example.com/qq-cover.jpg",
+      "songlist": [
+        {
+          "songmid": "qq-song-1",
+          "songname": "残酷な天使のテーゼ",
+          "singer": [
+            {
+              "name": "高橋洋子"
+            }
+          ],
+          "albumname": "NEON GENESIS EVANGELION",
+          "albummid": "qq-album-1",
+          "album": {
+            "singername": "EVANGELION"
+          }
+        },
+        {
+          "songid": 67890,
+          "songname": "光るなら",
+          "singer": [
+            {
+              "name": "Goose house"
+            }
+          ],
+          "album": {
+            "name": "光るなら",
+            "picurl": "https://example.com/hikaru.jpg"
+          }
+        }
+      ]
+    }
+  ]
+}
