@@ -4,7 +4,7 @@
       "disstid": "12345",
       "dissname": "QQ Fixture Playlist",
       "logo": "https://example.com/qq-cover.jpg",
-      "songlist": [
+      "songList": [
         {
           "songmid": "qq-song-1",
           "songname": "残酷な天使のテーゼ",

@@ -1,3 +1,12 @@
+export { normalizeNeteasePlaylist } from "./adapters/netease.js";
+
+export { normalizeQqPlaylist } from "./adapters/qq.js";
+export { appleCreatePlaylist, appleGetStorefront, appleSearch } from "./apple/api.js";
+export { createAppleMusicPlaylist, matchAppleMusic } from "./apple/matcher.js";
+export { interactiveLogin, loadCookies, saveCookies } from "./fetchers/auth.js";
+export { closeBrowser, fetchWithBrowser } from "./fetchers/browser.js";
+export { fetchNeteasePlaylist, parseNeteasePlaylistId } from "./fetchers/netease.js";
+export { fetchQqPlaylist, parseQqPlaylistId } from "./fetchers/qq.js";
 export type {
   AppleMatchReport,
   AppleMatchResult,
@@ -8,9 +17,3 @@ export type {
   NormalizedSource,
   NormalizedTrack
 } from "./types.js";
-
-export { normalizeQqPlaylist } from "./adapters/qq.js";
-export { normalizeNeteasePlaylist } from "./adapters/netease.js";
-export { fetchQqPlaylist, parseQqPlaylistId } from "./fetchers/qq.js";
-export { fetchNeteasePlaylist, parseNeteasePlaylistId } from "./fetchers/netease.js";
-export { matchAppleMusic } from "./apple/matcher.js";

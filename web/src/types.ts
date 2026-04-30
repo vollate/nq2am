@@ -1,19 +1,12 @@
 export type MusicProvider = "qq" | "netease" | "apple";
 
-export type NormalizedSource = {
-  provider: MusicProvider;
-  playlistId?: string;
-  songId?: string;
-  raw: unknown;
-};
-
 export type NormalizedTrack = {
   originalName: string;
   artists: string[];
   albumName?: string;
   albumArtist?: string;
   albumCoverUrl?: string;
-  source: NormalizedSource;
+  source: { provider: MusicProvider; playlistId?: string; songId?: string };
 };
 
 export type NormalizedPlaylist = {
@@ -24,10 +17,13 @@ export type NormalizedPlaylist = {
   coverUrl?: string;
   sourceUrl?: string;
   tracks: NormalizedTrack[];
-  raw: unknown;
 };
 
-export type AppleMatchStatus = "not_implemented" | "matched" | "not_found" | "ambiguous";
+export type AppleMatchStatus =
+  | "not_implemented"
+  | "matched"
+  | "not_found"
+  | "ambiguous";
 
 export type AppleMatchResult = {
   track: NormalizedTrack;
@@ -44,10 +40,8 @@ export type AppleMatchReport = {
   results: AppleMatchResult[];
 };
 
-export type FetchOptions = {
-  cookie?: string;
-  headers?: Record<string, string>;
-  userAgent?: string;
-  cookieDir?: string;
-  skipCookieCache?: boolean;
+export type AuthStatus = {
+  qq: boolean;
+  netease: boolean;
+  apple: boolean;
 };

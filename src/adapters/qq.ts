@@ -1,20 +1,13 @@
 import type { NormalizedPlaylist, NormalizedTrack } from "../types.js";
-import {
-  firstObjectArray,
-  firstString,
-  isObject,
-  joinNames,
-  namesFromArray,
-  readPath
-} from "./common.js";
+import { firstObjectArray, firstString, isObject, joinNames, namesFromArray, readPath } from "./common.js";
 
 export function normalizeQqPlaylist(input: unknown, sourceUrl?: string): NormalizedPlaylist {
   const playlist = pickQqPlaylist(input);
   const tracks = firstObjectArray(
-    readPath(playlist, ["songlist"]),
+    readPath(playlist, ["songList"]),
     readPath(playlist, ["songList"]),
     readPath(playlist, ["tracks"]),
-    readPath(input, ["songlist"]),
+    readPath(input, ["songList"]),
     readPath(input, ["tracks"])
   );
   const playlistId = firstString(
@@ -72,7 +65,7 @@ function pickQqPlaylist(input: unknown): unknown {
 }
 
 function hasQqTrackList(value: unknown): boolean {
-  return Array.isArray(readPath(value, ["songlist"])) || Array.isArray(readPath(value, ["tracks"]));
+  return Array.isArray(readPath(value, ["songList"])) || Array.isArray(readPath(value, ["tracks"]));
 }
 
 function normalizeQqTrack(input: unknown, playlistId?: string): NormalizedTrack {
@@ -80,28 +73,17 @@ function normalizeQqTrack(input: unknown, playlistId?: string): NormalizedTrack 
   const artists = namesFromArray(readPath(input, ["singer"]));
   const fallbackArtists = namesFromArray(readPath(input, ["artists"]));
   const allArtists = artists.length > 0 ? artists : fallbackArtists;
-  const albumMid = firstString(
-    readPath(input, ["albummid"]),
-    readPath(album, ["mid"]),
-    readPath(album, ["pmid"])
-  );
+  const albumMid = firstString(readPath(input, ["albummid"]), readPath(album, ["mid"]), readPath(album, ["pmid"]));
   const albumArtists = [
     ...namesFromArray(readPath(album, ["singers"])),
     ...namesFromArray(readPath(album, ["artists"]))
   ];
 
   return {
-    originalName: firstString(
-      readPath(input, ["songname"]),
-      readPath(input, ["name"]),
-      readPath(input, ["title"])
-    ) ?? "",
+    originalName:
+      firstString(readPath(input, ["songname"]), readPath(input, ["name"]), readPath(input, ["title"])) ?? "",
     artists: allArtists,
-    albumName: firstString(
-      readPath(input, ["albumname"]),
-      readPath(album, ["name"]),
-      readPath(album, ["title"])
-    ),
+    albumName: firstString(readPath(input, ["albumname"]), readPath(album, ["name"]), readPath(album, ["title"])),
     albumArtist: firstString(
       readPath(input, ["albumSinger"]),
       readPath(input, ["album_singer"]),

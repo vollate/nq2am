@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.log
 .codex
+.idea/
+page_example/

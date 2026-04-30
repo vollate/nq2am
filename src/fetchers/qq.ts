@@ -1,5 +1,5 @@
 import type { FetchOptions } from "../types.js";
-import { fetchJson } from "./http.js";
+import { fetchWithBrowser } from "./browser.js";
 
 export function parseQqPlaylistId(url: string): string {
   const parsed = new URL(url);
@@ -18,8 +18,7 @@ export function parseQqPlaylistId(url: string): string {
 
 export async function fetchQqPlaylist(url: string, options: FetchOptions = {}): Promise<unknown> {
   const id = parseQqPlaylistId(url);
-  const apiUrl = new URL("https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg");
-  apiUrl.search = new URLSearchParams({
+  const params = new URLSearchParams({
     type: "1",
     json: "1",
     utf8: "1",
@@ -34,14 +33,12 @@ export async function fetchQqPlaylist(url: string, options: FetchOptions = {}): 
     notice: "0",
     platform: "yqq.json",
     needNewCode: "0"
-  }).toString();
+  });
+  const apiPath = `/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?${params}`;
 
-  return fetchJson(apiUrl.toString(), {
+  return fetchWithBrowser("https://c.y.qq.com/", apiPath, {
     ...options,
-    headers: {
-      referer: "https://y.qq.com/",
-      origin: "https://y.qq.com",
-      ...options.headers
-    }
+    provider: "qq",
+    domain: ".y.qq.com"
   });
 }

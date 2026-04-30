@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { matchAppleMusic } from "../src/index.js";
 import type { NormalizedPlaylist } from "../src/index.js";
+import { matchAppleMusic } from "../src/index.js";
 
 test("Apple Music matcher returns explicit not implemented results", async () => {
   const playlist: NormalizedPlaylist = {

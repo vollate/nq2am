@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "description": "Normalize QQ Music and NetEase Cloud Music playlists for future Apple Music matching.",
   "type": "module",
-  "bin": {
-    "nq2am": "./dist/src/cli.js"
-  },
   "exports": {
     ".": "./dist/src/index.js"
   },
@@ -14,8 +11,17 @@
     "README.md"
   ],
   "scripts": {
+    "postinstall": "playwright install chromium",
     "build": "tsc -p tsconfig.json",
-    "cli": "node dist/src/cli.js",
+    "build:web": "cd web && pnpm run build",
+    "build:all": "pnpm run build && pnpm run build:web",
+    "dev": "concurrently \"pnpm run dev:server\" \"pnpm run dev:web\"",
+    "dev:server": "pnpm run build && node --watch dist/server/index.js",
+    "dev:web": "cd web && pnpm run dev",
+    "serve": "pnpm run build:all && node dist/server/index.js",
+    "fmt": "biome format --write src server tests",
+    "lint": "biome check src server tests",
+    "lint:fix": "biome check --write src server tests",
     "test": "pnpm run build && node --test dist/tests/*.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -27,10 +33,20 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@biomejs/biome": "^2.4.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.15.3",
+    "concurrently": "^9.2.1",
     "typescript": "^5.8.3"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "open": "^11.0.0",
+    "playwright": "^1.59.1"
   }
 }

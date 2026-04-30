@@ -49,9 +49,7 @@ export function namesFromArray(value: unknown): string[] {
 
   const names: string[] = [];
   for (const item of value) {
-    const name = isObject(item)
-      ? firstString(item.name, item.title, item.singername, item.artistName)
-      : asString(item);
+    const name = isObject(item) ? firstString(item.name, item.title, item.singername, item.artistName) : asString(item);
 
     if (name) {
       names.push(name);
