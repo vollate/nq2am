@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api";
 import ProviderBadge from "../components/ProviderBadge";
 import TrackTable from "../components/TrackTable";
+import { useTasks } from "../tasks";
 import type { NormalizedPlaylist, NormalizedTrack } from "../types";
 
 export default function PlaylistPage() {
@@ -12,6 +13,11 @@ export default function PlaylistPage() {
   const [error, setError] = useState<string | null>(null);
   const [matching, setMatching] = useState(false);
   const navigate = useNavigate();
+  const { refresh, setActiveKey } = useTasks();
+
+  useEffect(() => {
+    setActiveKey(id);
+  }, [id, setActiveKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +81,10 @@ export default function PlaylistPage() {
     if (!playlist) return;
     setMatching(true);
     try {
+      // Fire-and-forget: the match runs server-side and the match page polls
+      // for progress, so it survives navigating away.
       await api.runMatch(id);
+      await refresh();
       navigate(`/match/${encodeURIComponent(id)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

@@ -1,6 +1,6 @@
 import { Router, type Router as RouterType } from "express";
 import { createAppleMusicPlaylist } from "../../src/apple/matcher.js";
-import { getMatchReport, getPlaylist } from "../state.js";
+import { getMatchReport, getPlaylist, setApplePlaylistId, setTaskStatus } from "../state.js";
 
 const router: RouterType = Router();
 
@@ -15,7 +15,7 @@ router.post("/create-playlist", async (req, res) => {
     return;
   }
 
-  const playlist = getPlaylist(playlistId);
+  const playlist = await getPlaylist(playlistId);
   const report = getMatchReport(playlistId);
   if (!report) {
     res.status(404).json({ error: "Match report not found. Run match first." });
@@ -35,10 +35,13 @@ router.post("/create-playlist", async (req, res) => {
   const playlistDescription =
     description ?? `Imported from ${playlist?.provider ?? "nq2am"} - ${trackIds.length} tracks`;
 
+  setTaskStatus(playlistId, "creating");
   try {
     const newPlaylistId = await createAppleMusicPlaylist(playlistName, playlistDescription, trackIds);
+    setApplePlaylistId(playlistId, newPlaylistId);
     res.json({ playlistId: newPlaylistId });
   } catch (error) {
+    setTaskStatus(playlistId, "create_failed", (error as Error).message);
     res.status(500).json({ error: (error as Error).message });
   }
 });

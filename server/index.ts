@@ -6,6 +6,7 @@ import appleRouter from "./routes/apple.js";
 import authRouter from "./routes/auth.js";
 import matchRouter from "./routes/match.js";
 import playlistsRouter from "./routes/playlists.js";
+import preferencesRouter from "./routes/preferences.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +19,7 @@ export async function startServer(port: number): Promise<void> {
   app.use("/api/apple", appleRouter);
   app.use("/api", playlistsRouter);
   app.use("/api", matchRouter);
+  app.use("/api", preferencesRouter);
 
   // Serve static SPA in production
   const webDist = join(__dirname, "..", "..", "web", "dist");

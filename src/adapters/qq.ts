@@ -1,5 +1,5 @@
 import type { NormalizedPlaylist, NormalizedTrack } from "../types.js";
-import { firstObjectArray, firstString, isObject, joinNames, namesFromArray, readPath } from "./common.js";
+import { firstNumber, firstObjectArray, firstString, isObject, joinNames, namesFromArray, readPath } from "./common.js";
 
 export function normalizeQqPlaylist(input: unknown, sourceUrl?: string): NormalizedPlaylist {
   const playlist = pickQqPlaylist(input);
@@ -78,6 +78,10 @@ function normalizeQqTrack(input: unknown, playlistId?: string): NormalizedTrack 
     ...namesFromArray(readPath(album, ["singers"])),
     ...namesFromArray(readPath(album, ["artists"]))
   ];
+  // QQ reports length in seconds (`interval`); normalize to milliseconds.
+  const intervalSec = firstNumber(readPath(input, ["interval"]));
+  const durationMs =
+    intervalSec !== undefined ? Math.round(intervalSec * 1000) : firstNumber(readPath(input, ["duration"]));
 
   return {
     originalName:
@@ -97,6 +101,7 @@ function normalizeQqTrack(input: unknown, playlistId?: string): NormalizedTrack 
       readPath(album, ["picurl"]),
       albumMid ? `https://y.qq.com/music/photo_new/T002R300x300M000${albumMid}.jpg` : undefined
     ),
+    durationMs,
     source: {
       provider: "qq",
       playlistId,

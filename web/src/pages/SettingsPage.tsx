@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../api";
+import { useAuth } from "../auth";
+import MatchingSettings from "../components/MatchingSettings";
 import ProviderBadge from "../components/ProviderBadge";
-import type { AuthStatus, MusicProvider } from "../types";
+import type { MusicProvider } from "../types";
 
 const PROVIDERS: { id: MusicProvider; name: string; description: string }[] = [
   {
@@ -22,26 +24,9 @@ const PROVIDERS: { id: MusicProvider; name: string; description: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const [status, setStatus] = useState<AuthStatus | null>(null);
+  const { status, error: authError, setStatus } = useAuth();
   const [pending, setPending] = useState<MusicProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getAuthStatus()
-      .then((s) => {
-        if (!cancelled) setStatus(s);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   async function toggle(provider: MusicProvider) {
     setError(null);
@@ -68,9 +53,9 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {error && (
+      {(error ?? authError) && (
         <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
-          {error}
+          {error ?? authError}
         </div>
       )}
 
@@ -124,6 +109,8 @@ export default function SettingsPage() {
           );
         })}
       </div>
+
+      <MatchingSettings />
     </div>
   );
 }

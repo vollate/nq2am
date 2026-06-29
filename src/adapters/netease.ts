@@ -1,5 +1,5 @@
 import type { NormalizedPlaylist, NormalizedTrack } from "../types.js";
-import { firstObjectArray, firstString, joinNames, namesFromArray, readPath } from "./common.js";
+import { firstNumber, firstObjectArray, firstString, joinNames, namesFromArray, readPath } from "./common.js";
 
 export function normalizeNeteasePlaylist(input: unknown, sourceUrl?: string): NormalizedPlaylist {
   const playlist = readPath(input, ["playlist"]) ?? readPath(input, ["result"]) ?? input;
@@ -47,6 +47,7 @@ function normalizeNeteaseTrack(input: unknown, playlistId?: string): NormalizedT
       readPath(album, ["coverImgUrl"]),
       readPath(input, ["albumCoverUrl"])
     ),
+    durationMs: firstNumber(readPath(input, ["dt"]), readPath(input, ["duration"])),
     source: {
       provider: "netease",
       playlistId,

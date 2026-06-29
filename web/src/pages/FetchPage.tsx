@@ -2,14 +2,32 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { api, detectProvider } from "../api";
 import ProviderBadge from "../components/ProviderBadge";
+import { useTasks } from "../tasks";
+
+const DRAFT_KEY = "nq2am.fetchUrl";
 
 export default function FetchPage() {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(() =>
+    typeof localStorage !== "undefined"
+      ? (localStorage.getItem(DRAFT_KEY) ?? "")
+      : "",
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { refresh, setActiveKey } = useTasks();
 
   const detected = useMemo(() => detectProvider(url.trim()), [url]);
+
+  function updateUrl(next: string) {
+    setUrl(next);
+    // Persist the draft so navigating away (e.g. to Settings) never loses it.
+    if (next) {
+      localStorage.setItem(DRAFT_KEY, next);
+    } else {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,10 +36,10 @@ export default function FetchPage() {
     setError(null);
     setLoading(true);
     try {
-      const { key } = await api.normalize(
-        trimmed,
-        detected ?? undefined,
-      );
+      const { key } = await api.normalize(trimmed, detected ?? undefined);
+      setActiveKey(key);
+      await refresh();
+      localStorage.removeItem(DRAFT_KEY);
       navigate(`/playlist/${encodeURIComponent(key)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -44,7 +62,7 @@ export default function FetchPage() {
           <input
             type="url"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => updateUrl(e.target.value)}
             placeholder="https://y.qq.com/n/ryqq/playlist/..."
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 pr-28 text-base text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             autoFocus

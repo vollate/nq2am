@@ -8,12 +8,16 @@ export { closeBrowser, fetchWithBrowser } from "./fetchers/browser.js";
 export { fetchNeteasePlaylist, parseNeteasePlaylistId } from "./fetchers/netease.js";
 export { fetchQqPlaylist, parseQqPlaylistId } from "./fetchers/qq.js";
 export type {
+  AppleCandidate,
+  AppleContentRating,
   AppleMatchReport,
   AppleMatchResult,
   AppleMatchStatus,
   FetchOptions,
+  MatchPreferences,
   MusicProvider,
   NormalizedPlaylist,
   NormalizedSource,
   NormalizedTrack
 } from "./types.js";
+export { DEFAULT_MATCH_PREFERENCES } from "./types.js";

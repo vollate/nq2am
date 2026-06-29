@@ -1,9 +1,12 @@
 import type {
-  AppleMatchReport,
+  AppleMatchResult,
   AuthStatus,
+  MatchJob,
+  MatchPreferences,
   MusicProvider,
   NormalizedPlaylist,
   NormalizedTrack,
+  TaskSummary,
 } from "./types";
 
 async function request<T>(
@@ -63,8 +66,26 @@ export const api = {
     });
   },
 
-  async listPlaylists(): Promise<{ key: string; playlist: NormalizedPlaylist }[]> {
-    return request<{ key: string; playlist: NormalizedPlaylist }[]>("/api/playlists");
+  async listPlaylists(): Promise<TaskSummary[]> {
+    return request<TaskSummary[]>("/api/playlists");
+  },
+
+  async listTasks(): Promise<TaskSummary[]> {
+    return request<TaskSummary[]>("/api/tasks");
+  },
+
+  async deleteTasks(keys: string[]): Promise<{ removed: number }> {
+    return request<{ removed: number }>("/api/tasks", {
+      method: "DELETE",
+      body: JSON.stringify({ keys }),
+    });
+  },
+
+  async clearCompletedTasks(): Promise<{ removed: number; keys: string[] }> {
+    return request<{ removed: number; keys: string[] }>(
+      "/api/tasks/clear-completed",
+      { method: "POST" },
+    );
   },
 
   async getPlaylist(id: string): Promise<NormalizedPlaylist> {
@@ -100,17 +121,42 @@ export const api = {
     );
   },
 
-  async runMatch(playlistId: string): Promise<AppleMatchReport> {
-    return request<AppleMatchReport>("/api/match-apple", {
+  async runMatch(playlistId: string): Promise<{ status: string }> {
+    return request<{ status: string }>("/api/match-apple", {
       method: "POST",
       body: JSON.stringify({ playlistId }),
     });
   },
 
-  async getMatch(playlistId: string): Promise<AppleMatchReport> {
-    return request<AppleMatchReport>(
+  async getMatchJob(playlistId: string): Promise<MatchJob> {
+    return request<MatchJob>(
       `/api/match-apple/${encodeURIComponent(playlistId)}`,
     );
+  },
+
+  async selectTrack(
+    playlistId: string,
+    idx: number,
+    appleMusicId: string,
+  ): Promise<AppleMatchResult> {
+    return request<AppleMatchResult>(
+      `/api/match-apple/${encodeURIComponent(playlistId)}/tracks/${idx}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ appleMusicId }),
+      },
+    );
+  },
+
+  async getPreferences(): Promise<MatchPreferences> {
+    return request<MatchPreferences>("/api/preferences");
+  },
+
+  async putPreferences(prefs: MatchPreferences): Promise<MatchPreferences> {
+    return request<MatchPreferences>("/api/preferences", {
+      method: "PUT",
+      body: JSON.stringify(prefs),
+    });
   },
 
   async createApplePlaylist(playlistId: string, name?: string, description?: string): Promise<{ playlistId: string }> {

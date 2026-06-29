@@ -31,3 +31,27 @@ test("normalizes NetEase Cloud Music playlist fixture", async () => {
   assert.equal(playlist.tracks[0].albumArtist, "EGOIST");
   assert.equal(playlist.tracks[1].albumArtist, "LiSA");
 });
+
+test("normalizes track duration to milliseconds (qq seconds, netease ms)", () => {
+  const qq = normalizeQqPlaylist({
+    cdlist: [
+      {
+        disstid: "1",
+        dissname: "d",
+        songList: [{ songmid: "m1", songname: "S", interval: 215, singer: [{ name: "A" }] }]
+      }
+    ]
+  });
+  // QQ `interval` is seconds → milliseconds.
+  assert.equal(qq.tracks[0].durationMs, 215000);
+
+  const netease = normalizeNeteasePlaylist({
+    playlist: {
+      id: "2",
+      name: "n",
+      tracks: [{ id: 9, name: "S", dt: 277000, ar: [{ name: "A" }] }]
+    }
+  });
+  // NetEase `dt` is already milliseconds.
+  assert.equal(netease.tracks[0].durationMs, 277000);
+});

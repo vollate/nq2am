@@ -6,7 +6,16 @@ import {
   normalizeQqPlaylist
 } from "../../src/index.js";
 import type { MusicProvider } from "../../src/types.js";
-import { addPlaylist, deleteTracks, getAllPlaylists, getPlaylist, updateTrack } from "../state.js";
+import {
+  addPlaylist,
+  clearCompletedTasks,
+  deleteTasks,
+  deleteTracks,
+  getAllTasks,
+  getPlaylist,
+  getTask,
+  updateTrack
+} from "../state.js";
 
 const router: RouterType = Router();
 
@@ -33,19 +42,19 @@ router.post("/normalize", async (req, res) => {
   try {
     const payload = provider === "qq" ? await fetchQqPlaylist(url, {}) : await fetchNeteasePlaylist(url, {});
     const playlist = provider === "qq" ? normalizeQqPlaylist(payload, url) : normalizeNeteasePlaylist(payload, url);
-    const key = addPlaylist(playlist);
+    const key = await addPlaylist(playlist);
     res.json({ key, playlist });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
 });
 
-router.get("/playlists", (_req, res) => {
-  res.json(getAllPlaylists());
+router.get("/playlists", async (_req, res) => {
+  res.json(await getAllTasks());
 });
 
-router.get("/playlists/:id", (req, res) => {
-  const playlist = getPlaylist(req.params.id);
+router.get("/playlists/:id", async (req, res) => {
+  const playlist = await getPlaylist(req.params.id);
   if (!playlist) {
     res.status(404).json({ error: "Playlist not found" });
     return;
@@ -53,9 +62,9 @@ router.get("/playlists/:id", (req, res) => {
   res.json(playlist);
 });
 
-router.put("/playlists/:id/tracks/:idx", (req, res) => {
+router.put("/playlists/:id/tracks/:idx", async (req, res) => {
   const idx = Number.parseInt(req.params.idx, 10);
-  const track = updateTrack(req.params.id, idx, req.body);
+  const track = await updateTrack(req.params.id, idx, req.body);
   if (!track) {
     res.status(404).json({ error: "Playlist or track not found" });
     return;
@@ -63,15 +72,55 @@ router.put("/playlists/:id/tracks/:idx", (req, res) => {
   res.json(track);
 });
 
-router.delete("/playlists/:id/tracks", (req, res) => {
+router.delete("/playlists/:id/tracks", async (req, res) => {
   const { indices } = req.body as { indices?: number[] };
   if (!indices || !Array.isArray(indices)) {
     res.status(400).json({ error: "indices array is required" });
     return;
   }
-  const ok = deleteTracks(req.params.id, indices);
+  const ok = await deleteTracks(req.params.id, indices);
   if (!ok) {
     res.status(404).json({ error: "Playlist not found" });
+    return;
+  }
+  res.json({ success: true });
+});
+
+router.get("/tasks", async (_req, res) => {
+  res.json(await getAllTasks());
+});
+
+// Remove all completed (created) tasks. Declared before "/tasks/:id" so the
+// literal path wins over the param route.
+router.post("/tasks/clear-completed", async (_req, res) => {
+  const removed = await clearCompletedTasks();
+  res.json({ removed: removed.length, keys: removed });
+});
+
+// Bulk-delete selected tasks.
+router.delete("/tasks", async (req, res) => {
+  const { keys } = req.body as { keys?: string[] };
+  if (!keys || !Array.isArray(keys) || keys.length === 0) {
+    res.status(400).json({ error: "keys array is required" });
+    return;
+  }
+  const removed = await deleteTasks(keys);
+  res.json({ removed });
+});
+
+router.get("/tasks/:id", async (req, res) => {
+  const task = await getTask(req.params.id);
+  if (!task) {
+    res.status(404).json({ error: "Task not found" });
+    return;
+  }
+  res.json(task);
+});
+
+router.delete("/tasks/:id", async (req, res) => {
+  const removed = await deleteTasks([req.params.id]);
+  if (removed === 0) {
+    res.status(404).json({ error: "Task not found" });
     return;
   }
   res.json({ success: true });

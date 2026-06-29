@@ -1,25 +1,19 @@
-import { useEffect, useState } from "react";
 import { NavLink } from "react-router";
-import { api } from "../api";
-import type { AuthStatus } from "../types";
+import { useAuth } from "../auth";
+import { useTasks } from "../tasks";
 
 export default function Navbar() {
-  const [status, setStatus] = useState<AuthStatus | null>(null);
+  const { status } = useAuth();
+  const { tasks, activeKey } = useTasks();
 
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getAuthStatus()
-      .then((s) => {
-        if (!cancelled) setStatus(s);
-      })
-      .catch(() => {
-        // ignore; settings page will surface errors
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const activeTask = activeKey
+    ? tasks.find((t) => t.key === activeKey)
+    : undefined;
+  const resumeHref =
+    activeTask &&
+    (activeTask.status === "fetched"
+      ? `/playlist/${encodeURIComponent(activeTask.key)}`
+      : `/match/${encodeURIComponent(activeTask.key)}`);
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -39,24 +33,33 @@ export default function Navbar() {
           <NavLink to="/" end className={linkClass}>
             Fetch
           </NavLink>
+          <NavLink to="/tasks" className={linkClass}>
+            Tasks
+            {tasks.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-slate-600 px-1.5 py-0.5 text-[10px] text-slate-200">
+                {tasks.length}
+              </span>
+            )}
+          </NavLink>
           <NavLink to="/settings" className={linkClass}>
             Settings
           </NavLink>
         </nav>
 
         <div className="flex items-center gap-3">
-          <StatusDot
-            label="QQ"
-            connected={status?.qq === true}
-          />
-          <StatusDot
-            label="NetEase"
-            connected={status?.netease === true}
-          />
-          <StatusDot
-            label="Apple"
-            connected={status?.apple === true}
-          />
+          {activeTask && resumeHref && (
+            <NavLink
+              to={resumeHref}
+              className="hidden max-w-[180px] items-center gap-1.5 truncate rounded-md bg-slate-700/60 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-700 sm:flex"
+              title={`Resume: ${activeTask.name ?? "playlist"}`}
+            >
+              <span className="text-slate-400">Resume</span>
+              <span className="truncate">{activeTask.name ?? "playlist"}</span>
+            </NavLink>
+          )}
+          <StatusDot label="QQ" connected={status?.qq === true} />
+          <StatusDot label="NetEase" connected={status?.netease === true} />
+          <StatusDot label="Apple" connected={status?.apple === true} />
         </div>
       </div>
     </header>

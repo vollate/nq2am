@@ -28,6 +28,29 @@ export function firstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+export function asNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const n = Number(value);
+    if (Number.isFinite(n)) {
+      return n;
+    }
+  }
+  return undefined;
+}
+
+export function firstNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    const candidate = asNumber(value);
+    if (candidate !== undefined) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
 export function readPath(value: unknown, path: string[]): unknown {
   let current = value;
 

@@ -1,5 +1,5 @@
 import { Router, type Router as RouterType } from "express";
-import { interactiveLogin, loadCookies } from "../../src/fetchers/auth.js";
+import { getDataDir, interactiveLogin, loadCookies } from "../../src/fetchers/auth.js";
 import type { MusicProvider } from "../../src/types.js";
 
 const router: RouterType = Router();
@@ -44,19 +44,9 @@ router.post("/logout", async (req, res) => {
   }
 
   const { unlink } = await import("node:fs/promises");
-  const { homedir, platform } = await import("node:os");
   const { join } = await import("node:path");
 
-  let dataDir: string;
-  const os = platform();
-  if (os === "darwin") {
-    dataDir = join(homedir(), "Library", "Application Support", "nq2am");
-  } else if (os === "win32") {
-    dataDir = join(process.env.APPDATA ?? join(homedir(), "AppData", "Roaming"), "nq2am");
-  } else {
-    const xdgData = process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
-    dataDir = join(xdgData, "nq2am");
-  }
+  const dataDir = getDataDir();
 
   try {
     await unlink(join(dataDir, `cookies-${provider}.json`));
