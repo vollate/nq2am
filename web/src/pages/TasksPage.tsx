@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { api } from "../api";
 import ProviderBadge from "../components/ProviderBadge";
@@ -9,6 +10,7 @@ import type { TaskSummary } from "../types";
 export default function TasksPage() {
   const { tasks, loading, error, refresh, activeKey, setActiveKey } =
     useTasks();
+  const { t } = useTranslation(["tasks", "common"]);
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -124,23 +126,21 @@ export default function TasksPage() {
   }
 
   if (loading && tasks.length === 0) {
-    return <div className="text-slate-400">Loading tasks…</div>;
+    return <div className="text-slate-400">{t("loadingTasks")}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Tasks</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Every playlist you fetch is saved here. Pick up where you left off.
-          </p>
+          <h1 className="text-2xl font-semibold text-white">{t("title")}</h1>
+          <p className="mt-1 text-sm text-slate-400">{t("subtitle")}</p>
         </div>
         <Link
           to="/"
           className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400"
         >
-          + Fetch new
+          {t("fetchNew")}
         </Link>
       </div>
 
@@ -152,11 +152,11 @@ export default function TasksPage() {
 
       {tasks.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-700 bg-slate-800/50 px-6 py-12 text-center text-slate-400">
-          No tasks yet.{" "}
+          {t("empty.prefix")}{" "}
           <Link to="/" className="text-indigo-400 hover:underline">
-            Fetch a playlist
+            {t("empty.link")}
           </Link>{" "}
-          to get started.
+          {t("empty.suffix")}
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-800">
@@ -167,9 +167,11 @@ export default function TasksPage() {
                 className="h-4 w-4 accent-indigo-500"
                 checked={allSelected}
                 onChange={toggleAll}
-                aria-label="Select all tasks"
+                aria-label={t("selectAllAria")}
               />
-              {selected.size > 0 ? `${selected.size} selected` : "Select all"}
+              {selected.size > 0
+                ? t("selectedCount", { count: selected.size })
+                : t("selectAll")}
             </label>
             <div className="flex items-center gap-2">
               <button
@@ -177,12 +179,11 @@ export default function TasksPage() {
                 onClick={retrySelected}
                 disabled={busy || retryableSelected.length === 0}
                 className="rounded-md bg-indigo-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
-                title="Re-run the match for selected tasks that failed"
+                title={t("retryMatchTitle")}
               >
-                Retry match
                 {retryableSelected.length > 0
-                  ? ` (${retryableSelected.length})`
-                  : ""}
+                  ? t("retryMatchN", { count: retryableSelected.length })
+                  : t("retryMatch")}
               </button>
               <button
                 type="button"
@@ -190,16 +191,18 @@ export default function TasksPage() {
                 disabled={busy || selected.size === 0}
                 className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-40"
               >
-                {busy ? "Working…" : "Delete selected"}
+                {busy ? t("common:actions.working") : t("deleteSelected")}
               </button>
               <button
                 type="button"
                 onClick={clearCompleted}
                 disabled={busy || completedCount === 0}
                 className="rounded-md border border-slate-600 bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-600 disabled:opacity-40"
-                title="Remove tasks whose Apple Music playlist has been created"
+                title={t("clearCompletedTitle")}
               >
-                Clear completed{completedCount > 0 ? ` (${completedCount})` : ""}
+                {completedCount > 0
+                  ? t("clearCompletedN", { count: completedCount })
+                  : t("clearCompleted")}
               </button>
             </div>
           </div>
@@ -213,7 +216,9 @@ export default function TasksPage() {
                     className="h-4 w-4 flex-shrink-0 accent-indigo-500"
                     checked={selected.has(task.key)}
                     onChange={() => toggleOne(task.key)}
-                    aria-label={`Select ${task.name ?? "playlist"}`}
+                    aria-label={t("selectAria", {
+                      name: task.name ?? t("playlistFallback"),
+                    })}
                   />
                   <button
                     type="button"
@@ -223,14 +228,14 @@ export default function TasksPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium text-slate-100">
-                          {task.name ?? "Untitled playlist"}
+                          {task.name ?? t("untitledPlaylist")}
                         </span>
                         <ProviderBadge provider={task.provider} />
                       </div>
                       <div className="mt-1 text-xs text-slate-400">
-                        {task.trackCount} tracks
+                        {t("trackCount", { count: task.trackCount })}
                         {task.matched !== undefined &&
-                          ` · ${task.matched} matched`}
+                          ` · ${t("matchedCount", { count: task.matched })}`}
                         {task.status === "matching" &&
                           task.matchProgress &&
                           ` · ${task.matchProgress.processed}/${task.matchProgress.total}`}

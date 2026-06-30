@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, detectProvider } from "../api";
 import ProviderBadge from "../components/ProviderBadge";
@@ -16,6 +17,7 @@ export default function FetchPage() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { refresh, setActiveKey } = useTasks();
+  const { t } = useTranslation("fetch");
 
   const detected = useMemo(() => detectProvider(url.trim()), [url]);
 
@@ -51,10 +53,10 @@ export default function FetchPage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-16">
       <h1 className="text-3xl font-semibold tracking-tight text-white">
-        Fetch a playlist
+        {t("title")}
       </h1>
       <p className="mt-2 text-center text-sm text-slate-400">
-        Paste a QQ Music or NetEase Cloud Music playlist URL below.
+        {t("subtitle")}
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 w-full">
@@ -63,7 +65,7 @@ export default function FetchPage() {
             type="url"
             value={url}
             onChange={(e) => updateUrl(e.target.value)}
-            placeholder="https://y.qq.com/n/ryqq/playlist/..."
+            placeholder={t("placeholder")}
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 pr-28 text-base text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             autoFocus
           />
@@ -88,10 +90,10 @@ export default function FetchPage() {
           {loading ? (
             <>
               <Spinner />
-              Fetching…
+              {t("submitting")}
             </>
           ) : (
-            "Fetch & Normalize"
+            t("submit")
           )}
         </button>
       </form>

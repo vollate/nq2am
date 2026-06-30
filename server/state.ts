@@ -250,13 +250,30 @@ export function getMatchReport(key: string): AppleMatchReport | undefined {
 }
 
 /**
- * Manually choose an Apple Music candidate for a track in a task's match report.
- * Returns the updated result, or undefined if the task/track/candidate is absent.
+ * Manually set a track's Apple Music selection in a task's match report.
+ *
+ * Pass a candidate id to mark the track matched to that version, or `null` to
+ * clear the selection and mark it as not found ("no match") — for when none of
+ * the candidates is correct. Returns the updated result, or undefined if the
+ * task/track/candidate is absent.
  */
-export function setTrackSelection(key: string, idx: number, appleMusicId: string) {
+export function setTrackSelection(key: string, idx: number, appleMusicId: string | null) {
   const task = tasks.get(key);
   const result = task?.matchReport?.results[idx];
   if (!task || !result) return undefined;
+
+  if (appleMusicId === null) {
+    // User declared there's no correct match.
+    result.selectedId = undefined;
+    result.selectionSource = "manual";
+    result.status = "not_found";
+    result.appleMusicId = undefined;
+    result.appleMusicUrl = undefined;
+    result.reason = "Marked as no match";
+    task.updatedAt = Date.now();
+    persist();
+    return result;
+  }
 
   const candidate = result.candidates?.find((c) => c.id === appleMusicId);
   if (!candidate) return undefined;

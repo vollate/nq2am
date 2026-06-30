@@ -1,0 +1,7 @@
+{
+  "title": "获取歌单",
+  "subtitle": "在下方粘贴 QQ 音乐或网易云音乐的歌单链接。",
+  "placeholder": "https://y.qq.com/n/ryqq/playlist/...",
+  "submit": "获取并规范化",
+  "submitting": "获取中…"
+}

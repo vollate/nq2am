@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { NormalizedTrack } from "../types";
 import TrackRow from "./TrackRow";
 
@@ -15,6 +16,7 @@ export default function TrackTable({
 }: Props) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const { t } = useTranslation("playlist");
 
   const allSelected = useMemo(
     () => tracks.length > 0 && selected.size === tracks.length,
@@ -58,7 +60,7 @@ export default function TrackTable({
       {selected.size > 0 && (
         <div className="flex items-center justify-between border-b border-slate-700 bg-slate-800/80 px-4 py-2">
           <span className="text-sm text-slate-300">
-            {selected.size} selected
+            {t("selectedCount", { count: selected.size })}
           </span>
           <button
             type="button"
@@ -66,7 +68,7 @@ export default function TrackTable({
             disabled={deleting}
             className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
           >
-            {deleting ? "Deleting…" : "Delete selected"}
+            {deleting ? t("deleting") : t("deleteSelected")}
           </button>
         </div>
       )}
@@ -80,14 +82,14 @@ export default function TrackTable({
                   className="h-4 w-4 accent-indigo-500"
                   checked={allSelected}
                   onChange={toggleAll}
-                  aria-label="Select all"
+                  aria-label={t("selectAll")}
                 />
               </th>
               <th className="px-3 py-2 w-12">#</th>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Artists</th>
-              <th className="px-3 py-2">Album</th>
-              <th className="px-3 py-2">Album Artist</th>
+              <th className="px-3 py-2">{t("headers.name")}</th>
+              <th className="px-3 py-2">{t("headers.artists")}</th>
+              <th className="px-3 py-2">{t("headers.album")}</th>
+              <th className="px-3 py-2">{t("headers.albumArtist")}</th>
             </tr>
           </thead>
           <tbody>
@@ -97,7 +99,7 @@ export default function TrackTable({
                   colSpan={6}
                   className="px-3 py-10 text-center text-sm text-slate-400"
                 >
-                  No tracks.
+                  {t("noTracks")}
                 </td>
               </tr>
             ) : (

@@ -1,0 +1,35 @@
+{
+  "title": "Tasks",
+  "subtitle": "Every playlist you fetch is saved here. Pick up where you left off.",
+  "fetchNew": "+ Fetch new",
+  "loadingTasks": "Loading tasks…",
+  "empty": {
+    "prefix": "No tasks yet.",
+    "link": "Fetch a playlist",
+    "suffix": "to get started."
+  },
+  "selectAll": "Select all",
+  "selectAllAria": "Select all tasks",
+  "selectedCount": "{{count}} selected",
+  "selectAria": "Select {{name}}",
+  "playlistFallback": "playlist",
+  "untitledPlaylist": "Untitled playlist",
+  "retryMatch": "Retry match",
+  "retryMatchN": "Retry match ({{count}})",
+  "retryMatchTitle": "Re-run the match for selected tasks that failed",
+  "deleteSelected": "Delete selected",
+  "clearCompleted": "Clear completed",
+  "clearCompletedN": "Clear completed ({{count}})",
+  "clearCompletedTitle": "Remove tasks whose Apple Music playlist has been created",
+  "trackCount": "{{count}} tracks",
+  "matchedCount": "{{count}} matched",
+  "status": {
+    "fetched": "Fetched",
+    "matching": "Matching…",
+    "matched": "Matched",
+    "match_failed": "Match failed",
+    "creating": "Creating…",
+    "created": "Created",
+    "create_failed": "Create failed"
+  }
+}

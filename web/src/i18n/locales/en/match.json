@@ -1,0 +1,67 @@
+{
+  "title": "Match report",
+  "loading": "Loading match report…",
+  "matchFailed": "Match failed: {{error}}",
+  "unknownError": "unknown error",
+  "backToRetry": "Back to playlist to retry",
+  "matching": {
+    "title": "Matching to Apple Music…",
+    "progress": "{{processed}} of {{total}} tracks",
+    "starting": "Starting…",
+    "background": "You can leave this page — matching continues in the background."
+  },
+  "noReport": "No report yet.",
+  "backToPlaylist": "Back to playlist",
+  "status": {
+    "matched": "Matched",
+    "not_found": "Not found",
+    "ambiguous": "Ambiguous",
+    "not_implemented": "Not implemented"
+  },
+  "stats": {
+    "total": "Total",
+    "matched": "Matched",
+    "not_found": "Not found",
+    "ambiguous": "Ambiguous",
+    "pending": "Pending"
+  },
+  "tabs": {
+    "all": "All ({{count}})",
+    "review": "Needs review ({{count}})",
+    "matched": "Matched ({{count}})"
+  },
+  "emptyReview": "Nothing to review — every track is matched or has no candidates.",
+  "reselect": "Reselect",
+  "reselectTitle": "Reselect version",
+  "noMatch": "Mark as no match",
+  "noMatchSelected": "✓ Marked no match",
+  "table": {
+    "index": "#",
+    "name": "Name",
+    "artists": "Artists",
+    "status": "Status",
+    "appleIdReason": "Apple ID / Reason"
+  },
+  "manual": "(manual)",
+  "createPlaylist": "Create Apple Music Playlist",
+  "creating": "Creating…",
+  "createdMessage": "Apple Music playlist created{{idSuffix}}.",
+  "createdIdSuffix": " (ID: {{playlistId}})",
+  "exportReport": "Export Report",
+  "original": {
+    "heading": "Original",
+    "songName": "Song name",
+    "singer": "Singer",
+    "album": "Album",
+    "albumArtist": "Album artist",
+    "duration": "Duration"
+  },
+  "candidate": {
+    "selected": "Selected",
+    "choose": "Choose",
+    "exact": "exact",
+    "open": "open ↗",
+    "score": "score {{score}}",
+    "explicit": "E"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "loading": "正在加载歌单…",
+  "notFound": "未找到歌单。",
+  "fetchOne": "去获取一个",
+  "untitled": "未命名歌单",
+  "trackCount": "{{count}} 首歌曲",
+  "exportJson": "导出 JSON",
+  "matchToApple": "匹配到 Apple Music →",
+  "matching": "正在匹配…",
+  "selectedCount": "已选择 {{count}} 项",
+  "deleteSelected": "删除所选",
+  "deleting": "正在删除…",
+  "selectAll": "全选",
+  "noTracks": "暂无歌曲。",
+  "doubleClickToEdit": "双击以编辑",
+  "headers": {
+    "name": "名称",
+    "artists": "艺术家",
+    "album": "专辑",
+    "albumArtist": "专辑艺术家"
+  }
+}

@@ -30,6 +30,11 @@ export async function startServer(port: number): Promise<void> {
 
   app.listen(port, async () => {
     process.stdout.write(`nq2am server running at http://localhost:${port}\n`);
+    // In dev the Vite server (with HMR) is the browser target and opens itself,
+    // so skip auto-opening this (statically-served) port.
+    if (process.env.NQ2AM_NO_OPEN) {
+      return;
+    }
     const { default: open } = await import("open");
     await open(`http://localhost:${port}`);
   });

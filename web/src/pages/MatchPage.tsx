@@ -1,17 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { api } from "../api";
-import CandidateCard from "../components/CandidateCard";
 import ProviderBadge from "../components/ProviderBadge";
+import ReviewCard from "../components/ReviewCard";
 import { useTasks } from "../tasks";
 import type { AppleMatchReport, AppleMatchStatus, MatchJob } from "../types";
-
-const STATUS_LABEL: Record<AppleMatchStatus, string> = {
-  matched: "Matched",
-  not_found: "Not found",
-  ambiguous: "Ambiguous",
-  not_implemented: "Not implemented",
-};
 
 const STATUS_STYLE: Record<AppleMatchStatus, string> = {
   matched: "bg-green-600/20 text-green-300 ring-green-500/40",
@@ -23,6 +17,7 @@ const STATUS_STYLE: Record<AppleMatchStatus, string> = {
 type Tab = "all" | "review" | "matched";
 
 export default function MatchPage() {
+  const { t } = useTranslation(["match", "common"]);
   const { id = "" } = useParams<{ id: string }>();
   const { setActiveKey, refresh: refreshTasks } = useTasks();
   const [job, setJob] = useState<MatchJob | null>(null);
@@ -33,6 +28,7 @@ export default function MatchPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("all");
   const [selectingIdx, setSelectingIdx] = useState<number | null>(null);
+  const [reselectIdx, setReselectIdx] = useState<number | null>(null);
 
   const report: AppleMatchReport | null = job?.report ?? null;
   const isMatching = job?.status === "matching";
@@ -113,7 +109,11 @@ export default function MatchPage() {
     try {
       const res = await api.createApplePlaylist(id, report.playlistName);
       setCreateMessage(
-        `Apple Music playlist created${res.playlistId ? ` (ID: ${res.playlistId})` : ""}.`,
+        t("createdMessage", {
+          idSuffix: res.playlistId
+            ? t("createdIdSuffix", { playlistId: res.playlistId })
+            : "",
+        }),
       );
       void refreshTasks();
     } catch (err) {
@@ -123,7 +123,7 @@ export default function MatchPage() {
     }
   }
 
-  async function chooseCandidate(idx: number, appleMusicId: string) {
+  async function chooseCandidate(idx: number, appleMusicId: string | null) {
     setSelectingIdx(idx);
     try {
       const updated = await api.selectTrack(id, idx, appleMusicId);
@@ -135,6 +135,8 @@ export default function MatchPage() {
         return { ...prev, report: { ...prev.report, results } };
       });
       void refreshTasks();
+      // Close the reselect popup (if open) once the new pick is saved.
+      setReselectIdx(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -156,7 +158,7 @@ export default function MatchPage() {
   }, [report]);
 
   if (loading) {
-    return <div className="text-slate-400">Loading match report…</div>;
+    return <div className="text-slate-400">{t("loading")}</div>;
   }
 
   if (error) {
@@ -171,13 +173,13 @@ export default function MatchPage() {
     return (
       <div className="space-y-4">
         <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-200">
-          Match failed: {job.error ?? "unknown error"}
+          {t("matchFailed", { error: job.error ?? t("unknownError") })}
         </div>
         <Link
           to={`/playlist/${encodeURIComponent(id)}`}
           className="text-indigo-400 hover:underline"
         >
-          Back to playlist to retry
+          {t("backToRetry")}
         </Link>
       </div>
     );
@@ -188,9 +190,11 @@ export default function MatchPage() {
     const pct = p && p.total > 0 ? Math.round((p.processed / p.total) * 100) : 0;
     return (
       <div className="mx-auto max-w-md space-y-4 pt-16 text-center">
-        <h1 className="text-xl font-semibold text-white">Matching to Apple Music…</h1>
+        <h1 className="text-xl font-semibold text-white">{t("matching.title")}</h1>
         <p className="text-sm text-slate-400">
-          {p ? `${p.processed} of ${p.total} tracks` : "Starting…"}
+          {p
+            ? t("matching.progress", { processed: p.processed, total: p.total })
+            : t("matching.starting")}
         </p>
         <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700">
           <div
@@ -198,9 +202,7 @@ export default function MatchPage() {
             style={{ width: `${pct}%` }}
           />
         </div>
-        <p className="text-xs text-slate-500">
-          You can leave this page — matching continues in the background.
-        </p>
+        <p className="text-xs text-slate-500">{t("matching.background")}</p>
       </div>
     );
   }
@@ -208,12 +210,12 @@ export default function MatchPage() {
   if (!report) {
     return (
       <div className="text-slate-400">
-        No report yet.{" "}
+        {t("noReport")}{" "}
         <Link
           to={`/playlist/${encodeURIComponent(id)}`}
           className="text-indigo-400 hover:underline"
         >
-          Back to playlist
+          {t("backToPlaylist")}
         </Link>
         .
       </div>
@@ -224,18 +226,30 @@ export default function MatchPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold text-white">
-          {report.playlistName ?? "Match report"}
+          {report.playlistName ?? t("title")}
         </h1>
         <ProviderBadge provider={report.provider} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <StatCard label="Total" value={stats.total} tone="neutral" />
-        <StatCard label="Matched" value={stats.matched} tone="success" />
-        <StatCard label="Not found" value={stats.not_found} tone="danger" />
-        <StatCard label="Ambiguous" value={stats.ambiguous} tone="warning" />
+        <StatCard label={t("stats.total")} value={stats.total} tone="neutral" />
         <StatCard
-          label="Pending"
+          label={t("stats.matched")}
+          value={stats.matched}
+          tone="success"
+        />
+        <StatCard
+          label={t("stats.not_found")}
+          value={stats.not_found}
+          tone="danger"
+        />
+        <StatCard
+          label={t("stats.ambiguous")}
+          value={stats.ambiguous}
+          tone="warning"
+        />
+        <StatCard
+          label={t("stats.pending")}
           value={stats.not_implemented}
           tone="neutral"
         />
@@ -243,58 +257,32 @@ export default function MatchPage() {
 
       <div className="flex items-center gap-1 border-b border-slate-700">
         <TabButton active={tab === "all"} onClick={() => setTab("all")}>
-          All ({stats.total})
+          {t("tabs.all", { count: stats.total })}
         </TabButton>
         <TabButton active={tab === "review"} onClick={() => setTab("review")}>
-          Needs review ({reviewIndices.length})
+          {t("tabs.review", { count: reviewIndices.length })}
         </TabButton>
         <TabButton active={tab === "matched"} onClick={() => setTab("matched")}>
-          Matched ({stats.matched})
+          {t("tabs.matched", { count: stats.matched })}
         </TabButton>
       </div>
 
       {tab === "review" ? (
         reviewIndices.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-700 bg-slate-800/50 px-6 py-10 text-center text-slate-400">
-            Nothing to review — every track is matched or has no candidates.
+            {t("emptyReview")}
           </div>
         ) : (
           <div className="space-y-5">
-            {reviewIndices.map((i) => {
-              const r = report.results[i];
-              return (
-                <div
-                  key={i}
-                  className="rounded-lg border border-slate-700 bg-slate-800/50 p-4"
-                >
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-100">
-                      {r.track.originalName}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      {r.track.artists.join(", ")}
-                    </span>
-                    <span
-                      className={`ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLE[r.status]}`}
-                    >
-                      {STATUS_LABEL[r.status]}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {(r.candidates ?? []).map((c) => (
-                      <CandidateCard
-                        key={c.id}
-                        candidate={c}
-                        sourceDurationMs={r.track.durationMs}
-                        selected={r.selectedId === c.id}
-                        busy={selectingIdx === i}
-                        onChoose={() => chooseCandidate(i, c.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+            {reviewIndices.map((i) => (
+              <ReviewCard
+                key={i}
+                result={report.results[i]}
+                provider={report.provider}
+                busy={selectingIdx === i}
+                onChoose={(appleMusicId) => chooseCandidate(i, appleMusicId)}
+              />
+            ))}
           </div>
         )
       ) : (
@@ -302,11 +290,12 @@ export default function MatchPage() {
           <table className="w-full text-left">
             <thead className="bg-slate-800 text-xs uppercase tracking-wide text-slate-400">
               <tr>
-                <th className="px-3 py-2 w-12">#</th>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Artists</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Apple ID / Reason</th>
+                <th className="px-3 py-2 w-12">{t("table.index")}</th>
+                <th className="px-3 py-2">{t("table.name")}</th>
+                <th className="px-3 py-2">{t("table.artists")}</th>
+                <th className="px-3 py-2">{t("table.status")}</th>
+                <th className="px-3 py-2">{t("table.appleIdReason")}</th>
+                <th className="px-3 py-2 w-24" />
               </tr>
             </thead>
             <tbody>
@@ -329,21 +318,69 @@ export default function MatchPage() {
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLE[r.status]}`}
                       >
-                        {STATUS_LABEL[r.status]}
+                        {t(`status.${r.status}`)}
                       </span>
                       {r.selectionSource === "manual" && (
                         <span className="ml-1 text-[10px] text-slate-500">
-                          (manual)
+                          {t("manual")}
                         </span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-sm text-slate-400">
                       {r.appleMusicId ?? r.reason ?? "—"}
                     </td>
+                    <td className="px-3 py-2 text-right">
+                      {(r.candidates?.length ?? 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setReselectIdx(i)}
+                          className="rounded-md border border-slate-600 bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600"
+                        >
+                          {t("reselect")}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {reselectIdx !== null && report.results[reselectIdx] && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur-sm sm:p-8"
+          onClick={() => setReselectIdx(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setReselectIdx(null);
+          }}
+        >
+          <div
+            className="w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">
+                {t("reselectTitle")}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setReselectIdx(null)}
+                className="rounded-md px-2 py-1 text-sm text-slate-400 hover:bg-slate-700 hover:text-slate-100"
+                aria-label={t("common:actions.cancel")}
+              >
+                ✕
+              </button>
+            </div>
+            <ReviewCard
+              result={report.results[reselectIdx]}
+              provider={report.provider}
+              busy={selectingIdx === reselectIdx}
+              onChoose={(appleMusicId) =>
+                chooseCandidate(reselectIdx, appleMusicId)
+              }
+            />
+          </div>
         </div>
       )}
 
@@ -366,7 +403,7 @@ export default function MatchPage() {
               disabled={creating}
               className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
             >
-              {creating ? "Creating…" : "Create Apple Music Playlist"}
+              {creating ? t("creating") : t("createPlaylist")}
             </button>
           )}
           <button
@@ -374,7 +411,7 @@ export default function MatchPage() {
             onClick={exportReport}
             className="rounded-md bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-600"
           >
-            Export Report
+            {t("exportReport")}
           </button>
         </div>
       </div>

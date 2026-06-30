@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api";
 import ProviderBadge from "../components/ProviderBadge";
@@ -14,6 +15,7 @@ export default function PlaylistPage() {
   const [matching, setMatching] = useState(false);
   const navigate = useNavigate();
   const { refresh, setActiveKey } = useTasks();
+  const { t } = useTranslation("playlist");
 
   useEffect(() => {
     setActiveKey(id);
@@ -94,7 +96,7 @@ export default function PlaylistPage() {
   }
 
   if (loading) {
-    return <div className="text-slate-400">Loading playlist…</div>;
+    return <div className="text-slate-400">{t("loading")}</div>;
   }
 
   if (error) {
@@ -108,9 +110,9 @@ export default function PlaylistPage() {
   if (!playlist) {
     return (
       <div className="text-slate-400">
-        Playlist not found.{" "}
+        {t("notFound")}{" "}
         <Link to="/" className="text-indigo-400 hover:underline">
-          Fetch one
+          {t("fetchOne")}
         </Link>
         .
       </div>
@@ -132,7 +134,7 @@ export default function PlaylistPage() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="truncate text-2xl font-semibold text-white">
-              {playlist.name ?? "Untitled playlist"}
+              {playlist.name ?? t("untitled")}
             </h1>
             <ProviderBadge provider={playlist.provider} />
           </div>
@@ -142,7 +144,7 @@ export default function PlaylistPage() {
             </p>
           )}
           <p className="mt-2 text-sm text-slate-400">
-            {playlist.tracks.length} tracks
+            {t("trackCount", { count: playlist.tracks.length })}
           </p>
         </div>
       </div>
@@ -159,7 +161,7 @@ export default function PlaylistPage() {
           onClick={exportJson}
           className="rounded-md border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-600"
         >
-          Export JSON
+          {t("exportJson")}
         </button>
         <button
           type="button"
@@ -167,7 +169,7 @@ export default function PlaylistPage() {
           disabled={matching}
           className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
         >
-          {matching ? "Matching…" : "Match to Apple Music →"}
+          {matching ? t("matching") : t("matchToApple")}
         </button>
       </div>
     </div>

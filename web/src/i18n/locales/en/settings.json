@@ -1,0 +1,60 @@
+{
+  "title": "Settings",
+  "subtitle": "Connect your music accounts to fetch private playlists and create Apple Music playlists.",
+  "providers": {
+    "qq": {
+      "name": "QQ Music",
+      "description": "Log in to access private playlists on y.qq.com."
+    },
+    "netease": {
+      "name": "NetEase Cloud Music",
+      "description": "Log in to access private playlists on music.163.com."
+    },
+    "apple": {
+      "name": "Apple Music",
+      "description": "Log in to search, match tracks, and create playlists on music.apple.com."
+    }
+  },
+  "connection": {
+    "connected": "Connected",
+    "notConnected": "Not connected"
+  },
+  "buttons": {
+    "loggingOut": "Logging out…",
+    "openingBrowser": "Opening browser…",
+    "logOut": "Log out",
+    "logIn": "Log in"
+  },
+  "matching": {
+    "title": "Matching",
+    "description": "How tracks are auto-matched to Apple Music. Changes apply the next time you run or retry a match.",
+    "loading": "Loading matching preferences…",
+    "threshold": {
+      "label": "Match threshold:",
+      "help": "Minimum confidence to auto-accept a match."
+    },
+    "ambiguityGap": {
+      "label": "Ambiguity gap:",
+      "help": "If the top two are closer than this, it needs review."
+    },
+    "explicit": {
+      "label": "Explicit / clean preference",
+      "options": {
+        "none": "No preference",
+        "explicit": "Prefer explicit",
+        "clean": "Prefer clean"
+      },
+      "help": "Tie-breaker when both versions exist."
+    },
+    "storefront": {
+      "label": "Storefront",
+      "placeholder": "auto (from your account)",
+      "help": "Two-letter region, e.g. us, jp, cn. Leave blank to auto-detect."
+    },
+    "preferDuration": "Prefer candidates whose duration is closest to the source track",
+    "preferOriginal": "Prefer original studio versions over remaster / live / karaoke",
+    "save": "Save preferences",
+    "saving": "Saving…",
+    "saved": "Saved."
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "title": "设置",
+  "subtitle": "连接你的音乐账号，以获取私有歌单并创建 Apple Music 歌单。",
+  "providers": {
+    "qq": {
+      "name": "QQ 音乐",
+      "description": "登录以访问 y.qq.com 上的私有歌单。"
+    },
+    "netease": {
+      "name": "网易云音乐",
+      "description": "登录以访问 music.163.com 上的私有歌单。"
+    },
+    "apple": {
+      "name": "Apple Music",
+      "description": "登录以在 music.apple.com 上搜索、匹配歌曲并创建歌单。"
+    }
+  },
+  "connection": {
+    "connected": "已连接",
+    "notConnected": "未连接"
+  },
+  "buttons": {
+    "loggingOut": "正在退出登录…",
+    "openingBrowser": "正在打开浏览器…",
+    "logOut": "退出登录",
+    "logIn": "登录"
+  },
+  "matching": {
+    "title": "匹配",
+    "description": "歌曲如何自动匹配到 Apple Music。更改将在你下次运行或重试匹配时生效。",
+    "loading": "正在加载匹配偏好…",
+    "threshold": {
+      "label": "匹配阈值：",
+      "help": "自动接受匹配所需的最低置信度。"
+    },
+    "ambiguityGap": {
+      "label": "歧义间隔：",
+      "help": "如果排名前两位的差距小于此值，则需要人工复核。"
+    },
+    "explicit": {
+      "label": "显式 / 干净版本偏好",
+      "options": {
+        "none": "无偏好",
+        "explicit": "优先显式版本",
+        "clean": "优先干净版本"
+      },
+      "help": "当两个版本都存在时的决胜规则。"
+    },
+    "storefront": {
+      "label": "店面区域",
+      "placeholder": "自动（来自你的账号）",
+      "help": "两位字母的区域代码，例如 us、jp、cn。留空则自动检测。"
+    },
+    "preferDuration": "优先选择时长最接近源歌曲的候选项",
+    "preferOriginal": "优先选择原始录音室版本，而非重制 / 现场 / 卡拉OK 版本",
+    "save": "保存偏好",
+    "saving": "正在保存…",
+    "saved": "已保存。"
+  }
+}

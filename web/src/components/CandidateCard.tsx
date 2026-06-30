@@ -1,19 +1,6 @@
+import { useTranslation } from "react-i18next";
+import { fmtDelta, fmtDuration } from "../lib/duration";
 import type { AppleCandidate } from "../types";
-
-function fmtDuration(ms?: number): string {
-  if (!ms) return "—";
-  const total = Math.round(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function fmtDelta(candMs?: number, srcMs?: number): string | null {
-  if (!candMs || !srcMs) return null;
-  const diff = Math.round((candMs - srcMs) / 1000);
-  if (diff === 0) return "exact";
-  return `${diff > 0 ? "+" : ""}${diff}s`;
-}
 
 type Props = {
   candidate: AppleCandidate;
@@ -30,6 +17,7 @@ export default function CandidateCard({
   onChoose,
   busy,
 }: Props) {
+  const { t } = useTranslation("match");
   const delta = fmtDelta(candidate.durationMs, sourceDurationMs);
   const exact = delta === "exact";
 
@@ -70,10 +58,10 @@ export default function CandidateCard({
           <span>{fmtDuration(candidate.durationMs)}</span>
           {delta && (
             <span className={exact ? "text-green-400" : "text-amber-400"}>
-              ({delta})
+              ({exact ? t("candidate.exact") : delta})
             </span>
           )}
-          <span>· score {candidate.score.toFixed(2)}</span>
+          <span>· {t("candidate.score", { score: candidate.score.toFixed(2) })}</span>
           {candidate.url && (
             <a
               href={candidate.url}
@@ -81,7 +69,7 @@ export default function CandidateCard({
               rel="noreferrer"
               className="text-indigo-400 hover:underline"
             >
-              open ↗
+              {t("candidate.open")}
             </a>
           )}
         </div>
@@ -97,7 +85,7 @@ export default function CandidateCard({
             : "bg-slate-700 text-slate-100 hover:bg-slate-600"
         } disabled:opacity-60`}
       >
-        {selected ? "Selected" : "Choose"}
+        {selected ? t("candidate.selected") : t("candidate.choose")}
       </button>
     </div>
   );

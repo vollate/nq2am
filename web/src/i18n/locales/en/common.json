@@ -1,0 +1,33 @@
+{
+  "appName": "nq2am",
+  "nav": {
+    "fetch": "Fetch",
+    "tasks": "Tasks",
+    "settings": "Settings",
+    "resume": "Resume"
+  },
+  "provider": {
+    "qq": "QQ Music",
+    "netease": "NetEase",
+    "apple": "Apple Music"
+  },
+  "status": {
+    "connected": "connected",
+    "disconnected": "disconnected"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "zh": "中文"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "retry": "Retry",
+    "export": "Export",
+    "back": "Back",
+    "loading": "Loading…",
+    "working": "Working…"
+  }
+}

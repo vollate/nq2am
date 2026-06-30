@@ -1,8 +1,11 @@
+import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router";
 import { useAuth } from "../auth";
 import { useTasks } from "../tasks";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 export default function Navbar() {
+  const { t } = useTranslation();
   const { status } = useAuth();
   const { tasks, activeKey } = useTasks();
 
@@ -31,10 +34,10 @@ export default function Navbar() {
 
         <nav className="flex items-center gap-1">
           <NavLink to="/" end className={linkClass}>
-            Fetch
+            {t("nav.fetch")}
           </NavLink>
           <NavLink to="/tasks" className={linkClass}>
-            Tasks
+            {t("nav.tasks")}
             {tasks.length > 0 && (
               <span className="ml-1.5 rounded-full bg-slate-600 px-1.5 py-0.5 text-[10px] text-slate-200">
                 {tasks.length}
@@ -42,7 +45,7 @@ export default function Navbar() {
             )}
           </NavLink>
           <NavLink to="/settings" className={linkClass}>
-            Settings
+            {t("nav.settings")}
           </NavLink>
         </nav>
 
@@ -53,10 +56,11 @@ export default function Navbar() {
               className="hidden max-w-[180px] items-center gap-1.5 truncate rounded-md bg-slate-700/60 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-700 sm:flex"
               title={`Resume: ${activeTask.name ?? "playlist"}`}
             >
-              <span className="text-slate-400">Resume</span>
+              <span className="text-slate-400">{t("nav.resume")}</span>
               <span className="truncate">{activeTask.name ?? "playlist"}</span>
             </NavLink>
           )}
+          <LanguageSwitcher />
           <StatusDot label="QQ" connected={status?.qq === true} />
           <StatusDot label="NetEase" connected={status?.netease === true} />
           <StatusDot label="Apple" connected={status?.apple === true} />
@@ -67,13 +71,14 @@ export default function Navbar() {
 }
 
 function StatusDot({ label, connected }: { label: string; connected: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-1.5 text-xs text-slate-300">
       <span
         className={`inline-block h-2 w-2 rounded-full ${
           connected ? "bg-green-400" : "bg-slate-500"
         }`}
-        aria-label={connected ? "connected" : "disconnected"}
+        aria-label={connected ? t("status.connected") : t("status.disconnected")}
       />
       <span>{label}</span>
     </div>

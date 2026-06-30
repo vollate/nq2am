@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { NormalizedTrack } from "../types";
 
 type EditableField = "originalName" | "artists" | "albumName" | "albumArtist";
@@ -22,6 +23,7 @@ export default function TrackRow({
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { t } = useTranslation("playlist");
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -97,7 +99,7 @@ export default function TrackRow({
       <span
         className="block cursor-text rounded px-1 py-0.5 hover:bg-slate-700/60"
         onDoubleClick={() => beginEdit(field)}
-        title="Double-click to edit"
+        title={t("doubleClickToEdit")}
       >
         {display || <span className="text-slate-500">—</span>}
       </span>

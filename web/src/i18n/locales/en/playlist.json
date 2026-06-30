@@ -1,0 +1,22 @@
+{
+  "loading": "Loading playlist…",
+  "notFound": "Playlist not found.",
+  "fetchOne": "Fetch one",
+  "untitled": "Untitled playlist",
+  "trackCount": "{{count}} tracks",
+  "exportJson": "Export JSON",
+  "matchToApple": "Match to Apple Music →",
+  "matching": "Matching…",
+  "selectedCount": "{{count}} selected",
+  "deleteSelected": "Delete selected",
+  "deleting": "Deleting…",
+  "selectAll": "Select all",
+  "noTracks": "No tracks.",
+  "doubleClickToEdit": "Double-click to edit",
+  "headers": {
+    "name": "Name",
+    "artists": "Artists",
+    "album": "Album",
+    "albumArtist": "Album Artist"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "title": "Fetch a playlist",
+  "subtitle": "Paste a QQ Music or NetEase Cloud Music playlist URL below.",
+  "placeholder": "https://y.qq.com/n/ryqq/playlist/...",
+  "submit": "Fetch & Normalize",
+  "submitting": "Fetching…"
+}

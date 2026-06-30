@@ -1,0 +1,35 @@
+{
+  "title": "任务",
+  "subtitle": "你获取的每个播放列表都会保存在这里。从上次中断的地方继续。",
+  "fetchNew": "+ 获取新列表",
+  "loadingTasks": "正在加载任务…",
+  "empty": {
+    "prefix": "暂无任务。",
+    "link": "获取播放列表",
+    "suffix": "以开始使用。"
+  },
+  "selectAll": "全选",
+  "selectAllAria": "全选任务",
+  "selectedCount": "已选择 {{count}} 个",
+  "selectAria": "选择 {{name}}",
+  "playlistFallback": "播放列表",
+  "untitledPlaylist": "未命名播放列表",
+  "retryMatch": "重试匹配",
+  "retryMatchN": "重试匹配 ({{count}})",
+  "retryMatchTitle": "为匹配失败的选中任务重新运行匹配",
+  "deleteSelected": "删除所选",
+  "clearCompleted": "清除已完成",
+  "clearCompletedN": "清除已完成 ({{count}})",
+  "clearCompletedTitle": "移除已创建 Apple Music 播放列表的任务",
+  "trackCount": "{{count}} 首歌曲",
+  "matchedCount": "已匹配 {{count}} 首",
+  "status": {
+    "fetched": "已获取",
+    "matching": "匹配中…",
+    "matched": "已匹配",
+    "match_failed": "匹配失败",
+    "creating": "创建中…",
+    "created": "已创建",
+    "create_failed": "创建失败"
+  }
+}

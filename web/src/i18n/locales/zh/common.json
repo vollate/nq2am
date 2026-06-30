@@ -1,0 +1,33 @@
+{
+  "appName": "nq2am",
+  "nav": {
+    "fetch": "获取",
+    "tasks": "任务",
+    "settings": "设置",
+    "resume": "继续"
+  },
+  "provider": {
+    "qq": "QQ 音乐",
+    "netease": "网易云音乐",
+    "apple": "Apple Music"
+  },
+  "status": {
+    "connected": "已连接",
+    "disconnected": "未连接"
+  },
+  "language": {
+    "label": "语言",
+    "en": "English",
+    "zh": "中文"
+  },
+  "actions": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "retry": "重试",
+    "export": "导出",
+    "back": "返回",
+    "loading": "加载中…",
+    "working": "处理中…"
+  }
+}

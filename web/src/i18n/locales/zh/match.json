@@ -1,0 +1,67 @@
+{
+  "title": "匹配报告",
+  "loading": "正在加载匹配报告…",
+  "matchFailed": "匹配失败：{{error}}",
+  "unknownError": "未知错误",
+  "backToRetry": "返回歌单重试",
+  "matching": {
+    "title": "正在匹配到 Apple Music…",
+    "progress": "已处理 {{processed}} / {{total}} 首",
+    "starting": "正在开始…",
+    "background": "你可以离开此页面 —— 匹配将在后台继续。"
+  },
+  "noReport": "暂无报告。",
+  "backToPlaylist": "返回歌单",
+  "status": {
+    "matched": "已匹配",
+    "not_found": "未找到",
+    "ambiguous": "存在歧义",
+    "not_implemented": "未实现"
+  },
+  "stats": {
+    "total": "总计",
+    "matched": "已匹配",
+    "not_found": "未找到",
+    "ambiguous": "存在歧义",
+    "pending": "待处理"
+  },
+  "tabs": {
+    "all": "全部（{{count}}）",
+    "review": "需复核（{{count}}）",
+    "matched": "已匹配（{{count}}）"
+  },
+  "emptyReview": "无需复核 —— 每首歌曲均已匹配或没有候选项。",
+  "reselect": "重新选择",
+  "reselectTitle": "重新选择版本",
+  "noMatch": "标记为不匹配",
+  "noMatchSelected": "✓ 已标记不匹配",
+  "table": {
+    "index": "#",
+    "name": "名称",
+    "artists": "艺术家",
+    "status": "状态",
+    "appleIdReason": "Apple ID / 原因"
+  },
+  "manual": "（手动）",
+  "createPlaylist": "创建 Apple Music 歌单",
+  "creating": "正在创建…",
+  "createdMessage": "已创建 Apple Music 歌单{{idSuffix}}。",
+  "createdIdSuffix": "（ID：{{playlistId}}）",
+  "exportReport": "导出报告",
+  "original": {
+    "heading": "原曲",
+    "songName": "歌曲名称",
+    "singer": "演唱者",
+    "album": "专辑",
+    "albumArtist": "专辑艺术家",
+    "duration": "时长"
+  },
+  "candidate": {
+    "selected": "已选择",
+    "choose": "选择",
+    "exact": "完全一致",
+    "open": "打开 ↗",
+    "score": "评分 {{score}}",
+    "explicit": "E"
+  }
+}

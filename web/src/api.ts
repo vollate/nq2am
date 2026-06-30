@@ -137,7 +137,7 @@ export const api = {
   async selectTrack(
     playlistId: string,
     idx: number,
-    appleMusicId: string,
+    appleMusicId: string | null,
   ): Promise<AppleMatchResult> {
     return request<AppleMatchResult>(
       `/api/match-apple/${encodeURIComponent(playlistId)}/tracks/${idx}`,
