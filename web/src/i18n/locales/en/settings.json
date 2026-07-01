@@ -53,6 +53,16 @@
     },
     "preferDuration": "Prefer candidates whose duration is closest to the source track",
     "preferOriginal": "Prefer original studio versions over remaster / live / karaoke",
+    "nativeSearch": "Search non-English tracks in their native region",
+    "nativeSearchHelp": "Searches Japanese/Korean/Chinese tracks in their home Apple Music region for better matches, then bridges back to your account region via ISRC.",
+    "cjk": {
+      "label": "Region detection for CJK tracks",
+      "options": {
+        "source": "By source (NetEase/QQ → China)",
+        "text": "By text (kanji → Japan)"
+      },
+      "help": "How to choose the native region. \"By source\" trusts the playlist provider; \"By text\" guesses from the characters."
+    },
     "save": "Save preferences",
     "saving": "Saving…",
     "saved": "Saved."

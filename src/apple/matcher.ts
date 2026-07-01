@@ -8,7 +8,7 @@ import {
   type NormalizedPlaylist,
   type NormalizedTrack
 } from "../types.js";
-import { type AppleSong, appleCreatePlaylist, appleGetStorefront, appleSearch } from "./api.js";
+import { type AppleSong, appleCreatePlaylist, appleGetStorefront, appleSearch, appleSongsByIsrc } from "./api.js";
 
 /** Number of candidates kept per track so the user can override the pick. */
 const MAX_CANDIDATES = 8;
@@ -20,6 +20,34 @@ function normalizeText(s: string): string {
   return s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
+/**
+ * Pick the Apple Music storefront whose catalog best holds a track's original
+ * text, so non-English tracks are searched (and scored) in their native script
+ * rather than the account store's romanized metadata. Returns undefined when no
+ * native region applies (Latin text) — the caller then uses the account store.
+ */
+export function detectStorefrontForTrack(
+  track: NormalizedTrack,
+  mode: MatchPreferences["cjkDetection"]
+): string | undefined {
+  const text = `${track.originalName} ${track.artists.join(" ")} ${track.albumName ?? ""}`;
+  const hasKana = /[぀-ゟ゠-ヿ]/u.test(text); // Hiragana / Katakana
+  const hasHangul = /[가-힯ᄀ-ᇿ]/u.test(text);
+  const hasHan = /[一-鿿㐀-䶿]/u.test(text);
+
+  if (hasHangul) return "kr";
+  if (hasKana) return "jp";
+  if (hasHan) {
+    if (mode === "source") {
+      // Chinese providers → Chinese store; otherwise Han-only is usually Japanese.
+      return track.source.provider === "qq" || track.source.provider === "netease" ? "cn" : "jp";
+    }
+    // Pure text mode: Han-only most commonly indicates Japanese kanji titles.
+    return "jp";
+  }
+  return undefined;
+}
+
 function buildArtworkUrl(song: AppleSong): string | undefined {
   const art = song.attributes.artwork;
   if (!art?.url) return undefined;
@@ -27,7 +55,7 @@ function buildArtworkUrl(song: AppleSong): string | undefined {
   return art.url.replace("{w}", "200").replace("{h}", "200");
 }
 
-function toCandidate(song: AppleSong, score: number): AppleCandidate {
+function toCandidate(song: AppleSong, score: number, storefront: string): AppleCandidate {
   return {
     id: song.id,
     name: song.attributes.name,
@@ -38,7 +66,9 @@ function toCandidate(song: AppleSong, score: number): AppleCandidate {
     durationMs: song.attributes.durationInMillis,
     releaseDate: song.attributes.releaseDate,
     contentRating: song.attributes.contentRating,
-    score
+    score,
+    isrc: song.attributes.isrc,
+    storefront
   };
 }
 
@@ -107,7 +137,12 @@ function explicitRank(candidate: AppleCandidate, prefs: MatchPreferences): numbe
   return candidate.contentRating === "clean" ? 1 : 0;
 }
 
-function matchSingleTrack(track: NormalizedTrack, results: AppleSong[], prefs: MatchPreferences): AppleMatchResult {
+function matchSingleTrack(
+  track: NormalizedTrack,
+  results: AppleSong[],
+  storefront: string,
+  prefs: MatchPreferences
+): AppleMatchResult {
   if (results.length === 0) {
     return { track, status: "not_found", candidates: [], reason: "No results from Apple Music search" };
   }
@@ -115,7 +150,7 @@ function matchSingleTrack(track: NormalizedTrack, results: AppleSong[], prefs: M
   const scored = results
     .map((song) => {
       const score = applyRules(baseScore(track, song), track, song, prefs);
-      return toCandidate(song, score);
+      return toCandidate(song, score, storefront);
     })
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
@@ -175,11 +210,69 @@ function matchSingleTrack(track: NormalizedTrack, results: AppleSong[], prefs: M
 }
 
 /**
+ * Resolve the account-store (addable) id for each candidate via its ISRC, when
+ * the candidate came from a different (native) store. Mutates candidates in
+ * place, setting `addableId`. Best-effort: failures leave addableId undefined
+ * and are tolerated (the candidate id is used as a fallback at creation time).
+ */
+async function bridgeCandidatesToAccountStore(candidates: AppleCandidate[], accountStore: string): Promise<void> {
+  for (const c of candidates) {
+    if (c.storefront === accountStore) {
+      c.addableId = c.id;
+      continue;
+    }
+    if (!c.isrc) continue;
+    try {
+      const matches = await appleSongsByIsrc(c.isrc, accountStore);
+      if (matches.length > 0) {
+        c.addableId = matches[0].id;
+      }
+    } catch {
+      // leave addableId undefined; createPlaylist falls back to c.id
+    }
+  }
+}
+
+/**
+ * Match one track: search its native store (when nativeSearch is on and the
+ * track's script implies a non-account region), score there, then bridge the
+ * candidates back to the account store via ISRC so they can be added to the
+ * user's library.
+ */
+async function processTrack(
+  track: NormalizedTrack,
+  accountStore: string,
+  prefs: MatchPreferences
+): Promise<AppleMatchResult> {
+  const query = `${track.originalName} ${track.artists[0] ?? ""}`.trim();
+  const nativeStore = prefs.nativeSearch ? detectStorefrontForTrack(track, prefs.cjkDetection) : undefined;
+  const searchStore = nativeStore && nativeStore !== accountStore ? nativeStore : accountStore;
+
+  const songs = await appleSearch(query, searchStore);
+  const result = matchSingleTrack(track, songs, searchStore, prefs);
+
+  // Bridge to the account store only when we searched a different region.
+  if (searchStore !== accountStore && result.candidates && result.candidates.length > 0) {
+    await bridgeCandidatesToAccountStore(result.candidates, accountStore);
+    // Re-point the auto-selected id to its addable counterpart when resolved.
+    if (result.selectedId) {
+      const sel = result.candidates.find((c) => c.id === result.selectedId);
+      if (sel?.addableId) {
+        result.appleMusicId = sel.addableId;
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Match all tracks in a playlist against the Apple Music catalog.
  * Requires Apple Music login (cookies).
  *
- * `prefs` tunes thresholds and tie-break rules. `onProgress` (optional) is
- * invoked after each track so a caller can surface live progress.
+ * `prefs` tunes thresholds, tie-break rules, and native-region search.
+ * `onProgress` (optional) is invoked after each track so a caller can surface
+ * live progress.
  */
 export async function matchAppleMusic(
   playlist: NormalizedPlaylist,
@@ -200,13 +293,13 @@ export async function matchAppleMusic(
     };
   }
 
-  // Resolve storefront: explicit override wins, else auto-detect, else "us".
-  let storefront = prefs.storefront.trim();
-  if (!storefront) {
+  // Resolve the account storefront: explicit override wins, else auto-detect.
+  let accountStore = prefs.storefront.trim();
+  if (!accountStore) {
     try {
-      storefront = await appleGetStorefront();
+      accountStore = await appleGetStorefront();
     } catch {
-      storefront = "us";
+      accountStore = "us";
     }
   }
 
@@ -215,9 +308,7 @@ export async function matchAppleMusic(
   for (const track of playlist.tracks) {
     let result: AppleMatchResult;
     try {
-      const query = `${track.originalName} ${track.artists[0] ?? ""}`.trim();
-      const songs = await appleSearch(query, storefront);
-      result = matchSingleTrack(track, songs, prefs);
+      result = await processTrack(track, accountStore, prefs);
     } catch (error) {
       result = { track, status: "not_found", candidates: [], reason: (error as Error).message };
     }

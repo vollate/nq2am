@@ -266,6 +266,26 @@ export async function appleSearch(term: string, storefront: string): Promise<App
 }
 
 /**
+ * Look up catalog songs by ISRC within a storefront. Used to bridge a recording
+ * found in its native store to the user's account store (where it can be added
+ * to the library).
+ */
+export async function appleSongsByIsrc(isrc: string, storefront: string): Promise<AppleSong[]> {
+  const cookies = await loadCookies("apple");
+  const mediaUserToken = cookies?.find((c) => c.name === "media-user-token")?.value;
+  if (!mediaUserToken) {
+    throw new Error("Not logged in to Apple Music");
+  }
+
+  const params = new URLSearchParams({ "filter[isrc]": isrc, limit: "10" });
+  const result = await appleApiRequest<{ data?: AppleSong[] }>(
+    `/v1/catalog/${storefront}/songs?${params}`,
+    mediaUserToken
+  );
+  return result.data ?? [];
+}
+
+/**
  * Get the user's Apple Music storefront (e.g., "us", "jp", "cn").
  */
 export async function appleGetStorefront(): Promise<string> {

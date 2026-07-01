@@ -27,6 +27,9 @@ type Props = {
 export default function ReviewCard({ result: r, provider, busy, onChoose }: Props) {
   const { t } = useTranslation("match");
   const artistLine = r.track.artists.join(", ");
+  // True when any candidate was fetched from a non-account (native) region and
+  // bridged via ISRC — the library will display it using the account region.
+  const bridged = (r.candidates ?? []).some((c) => c.addableId && c.addableId !== c.id);
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
@@ -113,6 +116,9 @@ export default function ReviewCard({ result: r, provider, busy, onChoose }: Prop
         </button>
       </div>
       <div className="space-y-2">
+        {bridged && (
+          <p className="text-xs text-slate-500">{t("nativeNotice")}</p>
+        )}
         {(r.candidates ?? []).map((c) => (
           <CandidateCard
             key={c.id}

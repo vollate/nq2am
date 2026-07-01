@@ -45,6 +45,17 @@ export type AppleCandidate = {
   releaseDate?: string;
   contentRating?: AppleContentRating;
   score: number;
+  /** ISRC recording id, when available — used to bridge across storefronts. */
+  isrc?: string;
+  /**
+   * Catalog id of the same recording in the user's account storefront,
+   * resolved via ISRC. Falls back to `id` when the candidate already comes
+   * from the account store. This is the id that can actually be added to the
+   * user's library.
+   */
+  addableId?: string;
+  /** Storefront this candidate's metadata was fetched from (e.g. "jp"). */
+  storefront?: string;
 };
 
 export type AppleMatchResult = {
@@ -84,6 +95,17 @@ export type MatchPreferences = {
   preferOriginalVersion: boolean;
   /** Apple storefront override; empty string means auto-detect. */
   storefront: string;
+  /**
+   * Search non-English tracks in their native Apple Music region (jp/kr/cn) for
+   * better matches, bridging back to the account store via ISRC.
+   */
+  nativeSearch: boolean;
+  /**
+   * How to pick the native region for a track:
+   * - "source": use the playlist provider (qq/netease → cn) plus script hints.
+   * - "text": infer purely from the track text (kana→jp, hangul→kr, han→jp).
+   */
+  cjkDetection: "source" | "text";
 };
 
 export const DEFAULT_MATCH_PREFERENCES: MatchPreferences = {
@@ -92,7 +114,9 @@ export const DEFAULT_MATCH_PREFERENCES: MatchPreferences = {
   preferDurationMatch: true,
   explicitPreference: "none",
   preferOriginalVersion: true,
-  storefront: ""
+  storefront: "",
+  nativeSearch: true,
+  cjkDetection: "source"
 };
 
 export type FetchOptions = {

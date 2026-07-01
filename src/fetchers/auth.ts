@@ -14,6 +14,10 @@ const POLL_INTERVAL_MS = 1_000;
  * - Linux/others: $XDG_DATA_HOME/nq2am (defaults to ~/.local/share/nq2am)
  */
 export function getDataDir(): string {
+  if (process.env.NQ2AM_DATA_DIR) {
+    return process.env.NQ2AM_DATA_DIR;
+  }
+
   const os = platform();
   if (os === "darwin") {
     return join(homedir(), "Library", "Application Support", "nq2am");

@@ -21,6 +21,12 @@ export type BrowserFetchOptions = FetchOptions & {
   domain?: string;
   timeoutMs?: number;
   skipCookieCache?: boolean;
+  /** HTTP method for the in-page API call (defaults to GET). */
+  method?: string;
+  /** Request body for POST calls (e.g. url-encoded form). */
+  body?: string;
+  /** Content-Type header for the body. */
+  contentType?: string;
 };
 
 /**
@@ -100,10 +106,18 @@ async function doFetch(
     await page.goto(originUrl, { waitUntil: "domcontentloaded" });
 
     // Call the API from within the page (cookies are sent automatically)
-    const result = await page.evaluate(async (path: string) => {
-      const res = await fetch(path, { credentials: "include" });
-      return res.json();
-    }, apiPath);
+    const result = await page.evaluate(
+      async ({ path, method, body, contentType }) => {
+        const init: RequestInit = { method: method ?? "GET", credentials: "include" };
+        if (body !== undefined) {
+          init.body = body;
+          init.headers = { "Content-Type": contentType ?? "application/x-www-form-urlencoded" };
+        }
+        const res = await fetch(path, init);
+        return res.json();
+      },
+      { path: apiPath, method: options.method, body: options.body, contentType: options.contentType }
+    );
 
     // Persist cookies after successful fetch
     const allCookies = await context.cookies();

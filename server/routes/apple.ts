@@ -22,9 +22,16 @@ router.post("/create-playlist", async (req, res) => {
     return;
   }
 
+  // For each matched track, prefer the account-store "addable" id (resolved via
+  // ISRC when the candidate came from a native store), falling back to the
+  // selected/candidate id.
   const trackIds = report.results
-    .filter((r) => r.status === "matched" && r.appleMusicId)
-    .map((r) => r.appleMusicId as string);
+    .filter((r) => r.status === "matched")
+    .map((r) => {
+      const selected = r.candidates?.find((c) => c.id === r.selectedId);
+      return selected?.addableId ?? r.appleMusicId;
+    })
+    .filter((id): id is string => Boolean(id));
 
   if (trackIds.length === 0) {
     res.status(400).json({ error: "No matched tracks to add to playlist" });

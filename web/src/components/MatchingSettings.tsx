@@ -10,6 +10,8 @@ const DEFAULTS: MatchPreferences = {
   explicitPreference: "none",
   preferOriginalVersion: true,
   storefront: "",
+  nativeSearch: true,
+  cjkDetection: "source",
 };
 
 export default function MatchingSettings() {
@@ -180,7 +182,39 @@ export default function MatchingSettings() {
           />
           {t("matching.preferOriginal")}
         </label>
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-indigo-500"
+            checked={prefs.nativeSearch}
+            onChange={(e) => patch({ nativeSearch: e.target.checked })}
+          />
+          {t("matching.nativeSearch")}
+        </label>
+        <span className="ml-6 text-xs text-slate-500">
+          {t("matching.nativeSearchHelp")}
+        </span>
       </div>
+
+      {prefs.nativeSearch && (
+        <label className="flex max-w-sm flex-col gap-1 text-sm text-slate-300">
+          <span>{t("matching.cjk.label")}</span>
+          <select
+            value={prefs.cjkDetection}
+            onChange={(e) =>
+              patch({
+                cjkDetection: e.target
+                  .value as MatchPreferences["cjkDetection"],
+              })
+            }
+            className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none"
+          >
+            <option value="source">{t("matching.cjk.options.source")}</option>
+            <option value="text">{t("matching.cjk.options.text")}</option>
+          </select>
+          <span className="text-xs text-slate-500">{t("matching.cjk.help")}</span>
+        </label>
+      )}
 
       <div className="flex items-center gap-3">
         <button

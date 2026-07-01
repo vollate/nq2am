@@ -19,6 +19,7 @@ function sanitize(input: unknown): MatchPreferences {
     p.explicitPreference === "explicit" || p.explicitPreference === "clean" || p.explicitPreference === "none"
       ? p.explicitPreference
       : d.explicitPreference;
+  const cjk = p.cjkDetection === "source" || p.cjkDetection === "text" ? p.cjkDetection : d.cjkDetection;
   return {
     threshold: clamp(Number(p.threshold), 0, 1, d.threshold),
     ambiguousGap: clamp(Number(p.ambiguousGap), 0, 1, d.ambiguousGap),
@@ -26,7 +27,9 @@ function sanitize(input: unknown): MatchPreferences {
     explicitPreference: explicit,
     preferOriginalVersion:
       typeof p.preferOriginalVersion === "boolean" ? p.preferOriginalVersion : d.preferOriginalVersion,
-    storefront: typeof p.storefront === "string" ? p.storefront.trim().toLowerCase() : d.storefront
+    storefront: typeof p.storefront === "string" ? p.storefront.trim().toLowerCase() : d.storefront,
+    nativeSearch: typeof p.nativeSearch === "boolean" ? p.nativeSearch : d.nativeSearch,
+    cjkDetection: cjk
   };
 }
 

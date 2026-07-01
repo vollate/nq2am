@@ -49,6 +49,11 @@ export default function CandidateCard({
               E
             </span>
           )}
+          {candidate.storefront && (
+            <span className="flex-shrink-0 rounded bg-slate-700 px-1 text-[10px] font-semibold uppercase text-slate-300">
+              {candidate.storefront}
+            </span>
+          )}
         </div>
         <div className="truncate text-xs text-slate-400">
           {candidate.artistName}

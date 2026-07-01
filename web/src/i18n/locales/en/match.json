@@ -43,6 +43,7 @@
     "appleIdReason": "Apple ID / Reason"
   },
   "manual": "(manual)",
+  "nativeNotice": "Found in the track's native region. It will be added correctly, but your library shows it using your account region's language.",
   "createPlaylist": "Create Apple Music Playlist",
   "creating": "Creating…",
   "createdMessage": "Apple Music playlist created{{idSuffix}}.",

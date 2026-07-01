@@ -39,6 +39,9 @@ export type AppleCandidate = {
   releaseDate?: string;
   contentRating?: AppleContentRating;
   score: number;
+  isrc?: string;
+  addableId?: string;
+  storefront?: string;
 };
 
 export type AppleMatchResult = {
@@ -66,6 +69,8 @@ export type MatchPreferences = {
   explicitPreference: "explicit" | "clean" | "none";
   preferOriginalVersion: boolean;
   storefront: string;
+  nativeSearch: boolean;
+  cjkDetection: "source" | "text";
 };
 
 export type AuthStatus = {

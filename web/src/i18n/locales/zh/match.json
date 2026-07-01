@@ -43,6 +43,7 @@
     "appleIdReason": "Apple ID / 原因"
   },
   "manual": "（手动）",
+  "nativeNotice": "在歌曲的母语区域找到。会正确加入，但你的资料库会按账号区域的语言显示。",
   "createPlaylist": "创建 Apple Music 歌单",
   "creating": "正在创建…",
   "createdMessage": "已创建 Apple Music 歌单{{idSuffix}}。",

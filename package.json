@@ -15,9 +15,8 @@
     "build": "tsc -p tsconfig.json",
     "build:web": "cd web && pnpm run build",
     "build:all": "pnpm run build && pnpm run build:web",
-    "dev": "pnpm run build && concurrently -k -n tsc,server,web -c yellow,blue,green \"pnpm run dev:tsc\" \"pnpm run dev:server\" \"pnpm run dev:web\"",
-    "dev:tsc": "tsc -p tsconfig.json --watch --preserveWatchOutput",
-    "dev:server": "NQ2AM_NO_OPEN=1 node --watch dist/server/index.js",
+    "dev": "concurrently -k -n server,web -c blue,green \"pnpm run dev:server\" \"pnpm run dev:web\"",
+    "dev:server": "NQ2AM_NO_OPEN=1 tsx watch server/index.ts",
     "dev:web": "cd web && pnpm exec vite --open",
     "serve": "pnpm run build:all && node dist/server/index.js",
     "fmt": "biome format --write src server tests",
@@ -39,6 +38,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^22.15.3",
     "concurrently": "^9.2.1",
+    "tsx": "^4.22.4",
     "typescript": "^5.8.3"
   },
   "engines": {
