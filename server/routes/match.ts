@@ -76,8 +76,9 @@ router.get("/match-apple/:playlistId", async (req, res) => {
 // Manually choose an Apple Music candidate for a track in the report.
 router.put("/match-apple/:playlistId/tracks/:idx", async (req, res) => {
   const idx = Number.parseInt(req.params.idx, 10);
-  const { appleMusicId } = req.body as { appleMusicId?: string };
-  if (Number.isNaN(idx) || !appleMusicId) {
+  const { appleMusicId } = req.body as { appleMusicId?: string | null };
+  const invalidAppleMusicId = appleMusicId !== null && (typeof appleMusicId !== "string" || appleMusicId.length === 0);
+  if (Number.isNaN(idx) || invalidAppleMusicId) {
     res.status(400).json({ error: "idx and appleMusicId are required" });
     return;
   }

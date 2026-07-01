@@ -3,7 +3,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import type { NormalizedPlaylist, NormalizedTrack } from "../src/index.js";
+import type { AppleSong } from "../src/apple/api.js";
+import type { AppleContentRating, MatchPreferences, NormalizedPlaylist, NormalizedTrack } from "../src/types.js";
+import { DEFAULT_MATCH_PREFERENCES } from "../src/types.js";
 
 process.env.NQ2AM_DATA_DIR = mkdtempSync(join(tmpdir(), "nq2am-test-"));
 
@@ -15,6 +17,42 @@ function loadAppModule(): Promise<typeof import("../src/index.js")> {
 
 function track(originalName: string, provider: NormalizedTrack["source"]["provider"] = "netease"): NormalizedTrack {
   return { originalName, artists: [], source: { provider, raw: {} } };
+}
+
+let matcherModule: Promise<typeof import("../src/apple/matcher.js")> | undefined;
+function loadMatcherModule(): Promise<typeof import("../src/apple/matcher.js")> {
+  matcherModule ??= import("../src/apple/matcher.js");
+  return matcherModule;
+}
+
+function cover(fill: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="${fill}"/></svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
+function appleSong(id: string, artworkUrl?: string, contentRating?: AppleContentRating): AppleSong {
+  return {
+    id,
+    type: "songs",
+    attributes: {
+      name: "Song",
+      artistName: "Artist",
+      albumName: "Album",
+      durationInMillis: 180_000,
+      artwork: artworkUrl ? { url: artworkUrl } : undefined,
+      contentRating
+    }
+  };
+}
+
+function tiePrefs(): MatchPreferences {
+  return {
+    ...DEFAULT_MATCH_PREFERENCES,
+    threshold: 0.7,
+    ambiguousGap: 0.1,
+    preferDurationMatch: false,
+    explicitPreference: "none"
+  };
 }
 
 test("detectStorefrontForTrack picks native region by script", async () => {
@@ -59,4 +97,40 @@ test("Apple Music matcher returns explicit not implemented results", async () =>
   assert.equal(report.playlistId, "p1");
   assert.equal(report.results.length, 1);
   assert.equal(report.results[0].status, "not_implemented");
+});
+
+test("Apple Music matcher uses album cover similarity for near-tied candidates", async () => {
+  const { matchSingleTrack } = await loadMatcherModule();
+  const result = await matchSingleTrack(
+    {
+      originalName: "Song",
+      artists: ["Artist"],
+      albumCoverUrl: cover("red"),
+      source: { provider: "qq", raw: {} }
+    },
+    [appleSong("blue", cover("blue")), appleSong("red", cover("red"))],
+    "us",
+    tiePrefs()
+  );
+
+  assert.equal(result.status, "matched");
+  assert.equal(result.selectedId, "red");
+  assert.match(result.reason ?? "", /album cover similarity/);
+});
+
+test("Apple Music matcher keeps ambiguity when cover art is missing", async () => {
+  const { matchSingleTrack } = await loadMatcherModule();
+  const result = await matchSingleTrack(
+    {
+      originalName: "Song",
+      artists: ["Artist"],
+      source: { provider: "qq", raw: {} }
+    },
+    [appleSong("a", cover("blue")), appleSong("b", cover("red"))],
+    "us",
+    tiePrefs()
+  );
+
+  assert.equal(result.status, "ambiguous");
+  assert.equal(result.selectedId, undefined);
 });

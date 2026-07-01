@@ -9,6 +9,7 @@ import {
   type NormalizedTrack
 } from "../types.js";
 import { type AppleSong, appleCreatePlaylist, appleGetStorefront, appleSearch, appleSongsByIsrc } from "./api.js";
+import { chooseByCoverSimilarity } from "./artwork.js";
 
 /** Number of candidates kept per track so the user can override the pick. */
 const MAX_CANDIDATES = 8;
@@ -137,12 +138,24 @@ function explicitRank(candidate: AppleCandidate, prefs: MatchPreferences): numbe
   return candidate.contentRating === "clean" ? 1 : 0;
 }
 
-function matchSingleTrack(
+function matchedResult(track: NormalizedTrack, candidates: AppleCandidate[], winner: AppleCandidate): AppleMatchResult {
+  return {
+    track,
+    status: "matched",
+    candidates,
+    selectedId: winner.id,
+    selectionSource: "auto",
+    appleMusicId: winner.id,
+    appleMusicUrl: winner.url
+  };
+}
+
+export async function matchSingleTrack(
   track: NormalizedTrack,
   results: AppleSong[],
   storefront: string,
   prefs: MatchPreferences
-): AppleMatchResult {
+): Promise<AppleMatchResult> {
   if (results.length === 0) {
     return { track, status: "not_found", candidates: [], reason: "No results from Apple Music search" };
   }
@@ -179,14 +192,15 @@ function matchSingleTrack(
     const secondRank = explicitRank(second, prefs);
     if (prefs.explicitPreference !== "none" && bestRank !== secondRank) {
       const winner = bestRank > secondRank ? best : second;
+      return matchedResult(track, scored, winner);
+    }
+
+    const nearTied = scored.filter((candidate) => best.score - candidate.score < prefs.ambiguousGap);
+    const coverChoice = await chooseByCoverSimilarity(track, nearTied);
+    if (coverChoice) {
       return {
-        track,
-        status: "matched",
-        candidates: scored,
-        selectedId: winner.id,
-        selectionSource: "auto",
-        appleMusicId: winner.id,
-        appleMusicUrl: winner.url
+        ...matchedResult(track, scored, coverChoice.candidate),
+        reason: `Selected by album cover similarity (${coverChoice.similarity.toFixed(2)})`
       };
     }
 
@@ -198,15 +212,7 @@ function matchSingleTrack(
     };
   }
 
-  return {
-    track,
-    status: "matched",
-    candidates: scored,
-    selectedId: best.id,
-    selectionSource: "auto",
-    appleMusicId: best.id,
-    appleMusicUrl: best.url
-  };
+  return matchedResult(track, scored, best);
 }
 
 /**
@@ -249,7 +255,7 @@ async function processTrack(
   const searchStore = nativeStore && nativeStore !== accountStore ? nativeStore : accountStore;
 
   const songs = await appleSearch(query, searchStore);
-  const result = matchSingleTrack(track, songs, searchStore, prefs);
+  const result = await matchSingleTrack(track, songs, searchStore, prefs);
 
   // Bridge to the account store only when we searched a different region.
   if (searchStore !== accountStore && result.candidates && result.candidates.length > 0) {
