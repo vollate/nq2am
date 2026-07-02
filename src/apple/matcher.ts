@@ -139,6 +139,14 @@ function explicitRank(candidate: AppleCandidate, prefs: MatchPreferences): numbe
   return candidate.contentRating === "clean" ? 1 : 0;
 }
 
+function exactAlbumMatch(track: NormalizedTrack, candidates: AppleCandidate[]): AppleCandidate | undefined {
+  const sourceAlbum = normalizeText(track.albumName ?? "");
+  if (!sourceAlbum) return undefined;
+
+  const matches = candidates.filter((candidate) => normalizeText(candidate.albumName ?? "") === sourceAlbum);
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 function matchedResult(track: NormalizedTrack, candidates: AppleCandidate[], winner: AppleCandidate): AppleMatchResult {
   return {
     track,
@@ -197,6 +205,14 @@ export async function matchSingleTrack(
     }
 
     const nearTied = scored.filter((candidate) => best.score - candidate.score < prefs.ambiguousGap);
+    const albumChoice = exactAlbumMatch(track, nearTied);
+    if (albumChoice) {
+      return {
+        ...matchedResult(track, scored, albumChoice),
+        reason: "Selected by exact album match"
+      };
+    }
+
     const coverChoice = await chooseByCoverSimilarity(track, nearTied);
     if (coverChoice) {
       return {
@@ -343,7 +359,18 @@ export async function retryNotFoundAppleMusic(
   prefs: MatchPreferences = DEFAULT_MATCH_PREFERENCES,
   onProgress?: (processed: number, total: number, result: AppleMatchResult) => void
 ): Promise<AppleMatchReport> {
-  const retryIndices = getNotFoundIndices(report.results);
+  return retryAppleMusicResults(report, getNotFoundIndices(report.results), prefs, onProgress);
+}
+
+export async function retryAppleMusicResults(
+  report: AppleMatchReport,
+  indices: readonly number[],
+  prefs: MatchPreferences = DEFAULT_MATCH_PREFERENCES,
+  onProgress?: (processed: number, total: number, result: AppleMatchResult) => void
+): Promise<AppleMatchReport> {
+  const retryIndices = Array.from(new Set(indices)).filter(
+    (idx) => Number.isInteger(idx) && idx >= 0 && idx < report.results.length
+  );
   if (retryIndices.length === 0) {
     return report;
   }

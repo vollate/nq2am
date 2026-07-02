@@ -6,6 +6,7 @@ export {
   createAppleMusicPlaylist,
   detectStorefrontForTrack,
   matchAppleMusic,
+  retryAppleMusicResults,
   retryNotFoundAppleMusic
 } from "./apple/matcher.js";
 export { interactiveLogin, loadCookies, saveCookies } from "./fetchers/auth.js";

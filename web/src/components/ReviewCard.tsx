@@ -16,14 +16,16 @@ type Props = {
   provider: MusicProvider;
   busy: boolean;
   collapsed?: boolean;
+  retrySelected?: boolean;
   onToggleCollapsed?: () => void;
+  onToggleRetrySelected?: () => void;
   onChoose: (appleMusicId: string | null) => void;
 };
 
 /**
  * A track's original metadata plus its Apple Music candidate list, where the
  * user can pick (or re-pick) which version is selected. Used in both the
- * "Needs review" and "Matched" tabs — matched tracks keep their full candidate
+ * "Ambiguous" and "Matched" tabs — matched tracks keep their full candidate
  * list so the choice can always be changed.
  */
 export default function ReviewCard({
@@ -31,7 +33,9 @@ export default function ReviewCard({
   provider,
   busy,
   collapsed = false,
+  retrySelected = false,
   onToggleCollapsed,
+  onToggleRetrySelected,
   onChoose,
 }: Props) {
   const { t } = useTranslation("match");
@@ -47,6 +51,17 @@ export default function ReviewCard({
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
       <div className="mb-3 flex items-start gap-3 pr-3">
+        {onToggleRetrySelected && (
+          <input
+            type="checkbox"
+            checked={retrySelected}
+            onChange={onToggleRetrySelected}
+            className="mt-8 h-4 w-4 flex-shrink-0 accent-indigo-500"
+            aria-label={t("retry.selectTrack", {
+              name: r.track.originalName,
+            })}
+          />
+        )}
         {r.track.albumCoverUrl ? (
           <img
             src={r.track.albumCoverUrl}

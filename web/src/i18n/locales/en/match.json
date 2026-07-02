@@ -27,17 +27,18 @@
   },
   "tabs": {
     "all": "All ({{count}})",
-    "review": "Needs review ({{count}})",
+    "ambiguous": "Ambiguous ({{count}})",
     "not_found": "Not found ({{count}})",
     "matched": "Matched ({{count}})"
   },
-  "emptyReview": "Nothing to review — every track is matched or has no candidates.",
+  "emptyAmbiguous": "No ambiguous tracks.",
   "emptyNotFound": "No not-found tracks.",
   "reselect": "Reselect",
   "reselectTitle": "Reselect version",
   "noMatch": "Mark as no match",
   "noMatchSelected": "✓ Marked no match",
   "table": {
+    "retry": "Retry",
     "index": "#",
     "name": "Name",
     "artists": "Artists",
@@ -47,9 +48,19 @@
   "manual": "(manual)",
   "nativeNotice": "Found in the track's native region. It will be added correctly, but your library shows it using your account region's language.",
   "notFoundNoReason": "No Apple Music candidate was found.",
-  "retryNotFound": "Retry not found ({{count}})",
-  "retryingNotFound": "Retrying…",
-  "retryNotFoundTitle": "Re-run matching only for tracks currently marked not found",
+  "retry": {
+    "action": "Retry",
+    "running": "Retrying…",
+    "title": "Re-run matching for the selected scope",
+    "scopeLabel": "Retry scope",
+    "selectTrack": "Select {{name}} for retry",
+    "scopes": {
+      "not_found": "Not found ({{count}})",
+      "ambiguous": "Ambiguous ({{count}})",
+      "selected": "Selected ({{count}})",
+      "all": "All ({{count}})"
+    }
+  },
   "goTop": "Go to top",
   "reviewOptions": {
     "selected": "Selected: {{name}}",

@@ -30,14 +30,19 @@ function cover(fill: string): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
-function appleSong(id: string, artworkUrl?: string, contentRating?: AppleContentRating): AppleSong {
+function appleSong(
+  id: string,
+  artworkUrl?: string,
+  contentRating?: AppleContentRating,
+  albumName = "Album"
+): AppleSong {
   return {
     id,
     type: "songs",
     attributes: {
       name: "Song",
       artistName: "Artist",
-      albumName: "Album",
+      albumName,
       durationInMillis: 180_000,
       artwork: artworkUrl ? { url: artworkUrl } : undefined,
       contentRating
@@ -118,6 +123,28 @@ test("Apple Music matcher uses album cover similarity for near-tied candidates",
   assert.match(result.reason ?? "", /album cover similarity/);
 });
 
+test("Apple Music matcher uses exact album match for near-tied candidates", async () => {
+  const { matchSingleTrack } = await loadMatcherModule();
+  const result = await matchSingleTrack(
+    {
+      originalName: "Song",
+      artists: ["Artist"],
+      albumName: "Source Album",
+      source: { provider: "qq", raw: {} }
+    },
+    [
+      appleSong("wrong-album", undefined, undefined, "Other Album"),
+      appleSong("source-album", undefined, undefined, "Source Album")
+    ],
+    "us",
+    tiePrefs()
+  );
+
+  assert.equal(result.status, "matched");
+  assert.equal(result.selectedId, "source-album");
+  assert.match(result.reason ?? "", /album match/);
+});
+
 test("Apple Music matcher keeps ambiguity when cover art is missing", async () => {
   const { matchSingleTrack } = await loadMatcherModule();
   const result = await matchSingleTrack(
@@ -183,6 +210,59 @@ test("Apple Music retry only replaces not-found results", async () => {
 
   assert.equal(report.results[0].status, "matched");
   assert.equal(report.results[0].appleMusicId, "apple-ok");
+  assert.equal(report.results[1].status, "not_implemented");
+  assert.equal(report.results[2].status, "not_implemented");
+});
+
+test("Apple Music retry can refresh selected result indices once", async () => {
+  const { retryAppleMusicResults } = await loadMatcherModule();
+  const keepTrack: NormalizedTrack = {
+    originalName: "Keep",
+    artists: ["Artist"],
+    source: { provider: "qq", raw: {} }
+  };
+  const selectedTrack: NormalizedTrack = {
+    originalName: "Selected",
+    artists: ["Artist"],
+    source: { provider: "qq", raw: {} }
+  };
+  const duplicateTrack: NormalizedTrack = {
+    originalName: "Duplicate selected",
+    artists: ["Artist"],
+    source: { provider: "qq", raw: {} }
+  };
+
+  const report = await retryAppleMusicResults(
+    {
+      provider: "qq",
+      playlistId: "retry-selected",
+      playlistName: "Retry selected",
+      results: [
+        {
+          track: keepTrack,
+          status: "matched",
+          selectedId: "keep",
+          appleMusicId: "keep",
+          candidates: [{ id: "keep", name: "Keep", artistName: "Artist", score: 1 }]
+        },
+        {
+          track: selectedTrack,
+          status: "ambiguous",
+          candidates: [{ id: "selected", name: "Selected", artistName: "Artist", score: 0.9 }]
+        },
+        {
+          track: duplicateTrack,
+          status: "not_found",
+          candidates: [],
+          reason: "No results from Apple Music search"
+        }
+      ]
+    },
+    [2, 1, 2]
+  );
+
+  assert.equal(report.results[0].status, "matched");
+  assert.equal(report.results[0].appleMusicId, "keep");
   assert.equal(report.results[1].status, "not_implemented");
   assert.equal(report.results[2].status, "not_implemented");
 });

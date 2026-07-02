@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getNotFoundIndices, getReviewIndices } from "../src/matchFilters.js";
+import { getAmbiguousIndices, getNotFoundIndices, getRetryIndices } from "../src/matchFilters.js";
 
 const candidates = [{ id: "apple-1" }];
 
-test("review list contains ambiguous tracks and not-found tracks with candidates", () => {
-  const indices = getReviewIndices([
+test("ambiguous list contains only ambiguous tracks", () => {
+  const indices = getAmbiguousIndices([
     { status: "matched" },
     { status: "ambiguous" },
     { status: "not_found", candidates },
     { status: "not_found", candidates: [] }
   ]);
 
-  assert.deepEqual(indices, [1, 2]);
+  assert.deepEqual(indices, [1]);
 });
 
 test("not-found list contains every not-found track", () => {
@@ -24,4 +24,18 @@ test("not-found list contains every not-found track", () => {
   ]);
 
   assert.deepEqual(indices, [1, 3]);
+});
+
+test("retry scopes select the expected result indices", () => {
+  const results = [
+    { status: "matched" },
+    { status: "ambiguous" },
+    { status: "not_found", candidates },
+    { status: "not_implemented" }
+  ] as const;
+
+  assert.deepEqual(getRetryIndices(results, "not_found"), [2]);
+  assert.deepEqual(getRetryIndices(results, "ambiguous"), [1]);
+  assert.deepEqual(getRetryIndices(results, "all"), [0, 1, 2, 3]);
+  assert.deepEqual(getRetryIndices(results, "selected", [2, 1, 2, 99, -1]), [2, 1]);
 });

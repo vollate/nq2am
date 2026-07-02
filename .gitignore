@@ -4,3 +4,4 @@ dist/
 .codex
 .idea/
 page_example/
+docs/superpowers/**

@@ -27,7 +27,7 @@
   },
   "matching": {
     "title": "Matching",
-    "description": "When you run a match, nq2am searches Apple Music for each source track, scores the candidates, then auto-selects only clear winners. Uncertain tracks go to Needs review or Not found. Changes apply the next time you run or retry a match.",
+    "description": "When you run a match, nq2am searches Apple Music for each source track, scores the candidates, then auto-selects only clear winners. Uncertain tracks go to Ambiguous or Not found. Changes apply the next time you run or retry a match.",
     "loading": "Loading matching preferences…",
     "threshold": {
       "label": "Match threshold:",
@@ -37,7 +37,7 @@
     "ambiguityGap": {
       "label": "Ambiguity gap:",
       "help": "Higher means close choices are reviewed instead of auto-picked.",
-      "tooltip": "After the best candidate passes the threshold, nq2am compares it with the second-best score. If best minus second-best is smaller than this gap, it tries explicit/clean preference and cover similarity; if still unclear, the track goes to Needs review."
+      "tooltip": "After the best candidate passes the threshold, nq2am compares it with the second-best score. If best minus second-best is smaller than this gap, it tries explicit/clean preference and cover similarity; if still unclear, the track goes to Ambiguous."
     },
     "explicit": {
       "label": "Explicit / clean preference",

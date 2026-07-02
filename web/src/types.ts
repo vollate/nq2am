@@ -62,6 +62,8 @@ export type AppleMatchReport = {
   results: AppleMatchResult[];
 };
 
+export type MatchRetryScope = "not_found" | "ambiguous" | "selected" | "all";
+
 export type MatchPreferences = {
   threshold: number;
   ambiguousGap: number;

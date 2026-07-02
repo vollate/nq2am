@@ -10,13 +10,17 @@ import {
   toggleReviewOptions,
 } from "../../../src/reviewCollapse";
 import { shouldShowGoTopButton } from "../../../src/scrollUi";
-import { getNotFoundIndices, getReviewIndices } from "../../../src/matchFilters";
+import {
+  getAmbiguousIndices,
+  getNotFoundIndices,
+} from "../../../src/matchFilters";
 import { useTasks } from "../tasks";
 import type {
   AppleMatchReport,
   AppleMatchResult,
   AppleMatchStatus,
   MatchJob,
+  MatchRetryScope,
   MusicProvider,
 } from "../types";
 
@@ -27,7 +31,13 @@ const STATUS_STYLE: Record<AppleMatchStatus, string> = {
   not_implemented: "bg-slate-600/30 text-slate-300 ring-slate-500/40",
 };
 
-type Tab = "all" | "review" | "not_found" | "matched";
+type Tab = "all" | "ambiguous" | "not_found" | "matched";
+const RETRY_SCOPES: MatchRetryScope[] = [
+  "not_found",
+  "ambiguous",
+  "selected",
+  "all",
+];
 
 export default function MatchPage() {
   const { t } = useTranslation(["match", "common"]);
@@ -37,7 +47,10 @@ export default function MatchPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [retryingNotFound, setRetryingNotFound] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryScope, setRetryScope] =
+    useState<MatchRetryScope>("not_found");
+  const [retryScopeMenuOpen, setRetryScopeMenuOpen] = useState(false);
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -52,6 +65,9 @@ export default function MatchPage() {
   const [expandedReviewOptions, setExpandedReviewOptions] = useState<Set<number>>(
     () => new Set(),
   );
+  const [retrySelectedIndices, setRetrySelectedIndices] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   const report: AppleMatchReport | null = job?.report ?? null;
   const isMatching = job?.status === "matching";
@@ -61,7 +77,18 @@ export default function MatchPage() {
     setLoading(true);
     setCollapsedReviewOptions(new Set());
     setExpandedReviewOptions(new Set());
+    setRetrySelectedIndices(new Set());
   }, [id, setActiveKey]);
+
+  useEffect(() => {
+    setRetrySelectedIndices((prev) => {
+      if (!report) return prev.size === 0 ? prev : new Set();
+      const next = new Set(
+        [...prev].filter((idx) => idx >= 0 && idx < report.results.length),
+      );
+      return next.size === prev.size ? prev : next;
+    });
+  }, [report]);
 
   useEffect(() => {
     function updateGoTopVisibility() {
@@ -72,6 +99,12 @@ export default function MatchPage() {
     window.addEventListener("scroll", updateGoTopVisibility, { passive: true });
     return () => window.removeEventListener("scroll", updateGoTopVisibility);
   }, []);
+
+  useEffect(() => {
+    if (retrying || creating) {
+      setRetryScopeMenuOpen(false);
+    }
+  }, [creating, retrying]);
 
   // Load the job, then keep polling while the match is still running so the page
   // shows live progress and survives being navigated away and back.
@@ -143,20 +176,30 @@ export default function MatchPage() {
     }
   }
 
-  async function handleRetryNotFound() {
-    if (notFoundIndices.length === 0) return;
+  async function handleRetry() {
+    const retryIndices =
+      retryScope === "selected" ? [...retrySelectedIndices] : [];
+    const retryTotal = retryCounts[retryScope];
+    if (retryTotal === 0) return;
     setRetryError(null);
     setCreateMessage(null);
-    setRetryingNotFound(true);
+    setRetrying(true);
     try {
-      await api.retryNotFound(id);
-      setTab("not_found");
+      await api.retryMatch(id, retryScope, retryIndices);
+      setTab(
+        retryScope === "not_found"
+          ? "not_found"
+          : retryScope === "ambiguous"
+            ? "ambiguous"
+            : "all",
+      );
+      setRetrySelectedIndices(new Set());
       setJob((prev) =>
         prev
           ? {
               ...prev,
               status: "matching",
-              progress: { processed: 0, total: notFoundIndices.length },
+              progress: { processed: 0, total: retryTotal },
             }
           : prev,
       );
@@ -165,8 +208,20 @@ export default function MatchPage() {
     } catch (err) {
       setRetryError(err instanceof Error ? err.message : String(err));
     } finally {
-      setRetryingNotFound(false);
+      setRetrying(false);
     }
+  }
+
+  function toggleRetrySelected(idx: number) {
+    setRetrySelectedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
   }
 
   async function chooseCandidate(
@@ -204,15 +259,30 @@ export default function MatchPage() {
     }
   }
 
-  const reviewIndices = useMemo(() => {
+  const ambiguousResultIndices = useMemo(() => {
     if (!report) return [];
-    return getReviewIndices(report.results);
+    return getAmbiguousIndices(report.results);
   }, [report]);
 
   const notFoundIndices = useMemo(() => {
     if (!report) return [];
     return getNotFoundIndices(report.results);
   }, [report]);
+
+  const retryCounts = useMemo(
+    () => ({
+      not_found: notFoundIndices.length,
+      ambiguous: ambiguousResultIndices.length,
+      selected: retrySelectedIndices.size,
+      all: report?.results.length ?? 0,
+    }),
+    [
+      ambiguousResultIndices.length,
+      notFoundIndices.length,
+      report,
+      retrySelectedIndices.size,
+    ],
+  );
 
   if (loading) {
     return <div className="text-slate-400">{t("loading")}</div>;
@@ -290,17 +360,93 @@ export default function MatchPage() {
             <ProviderBadge provider={report.provider} />
           </div>
           <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
-            <button
-              type="button"
-              onClick={handleRetryNotFound}
-              disabled={retryingNotFound || creating || notFoundIndices.length === 0}
-              className="rounded-md border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-600 disabled:opacity-50"
-              title={t("retryNotFoundTitle")}
-            >
-              {retryingNotFound
-                ? t("retryingNotFound")
-                : t("retryNotFound", { count: notFoundIndices.length })}
-            </button>
+            <div className="flex rounded-md border border-slate-600 bg-slate-900 shadow-sm shadow-slate-950/30">
+              <div
+                className="relative"
+                onBlur={(e) => {
+                  const nextTarget = e.relatedTarget as Node | null;
+                  if (!e.currentTarget.contains(nextTarget)) {
+                    setRetryScopeMenuOpen(false);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setRetryScopeMenuOpen(false);
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setRetryScopeMenuOpen((open) => !open)}
+                  disabled={retrying || creating}
+                  className="flex min-w-36 items-center justify-between gap-2 rounded-l-md bg-slate-900 px-3 py-2 text-sm font-medium text-slate-100 outline-none transition-colors hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-indigo-400/70 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={t("retry.scopeLabel")}
+                  aria-haspopup="listbox"
+                  aria-expanded={retryScopeMenuOpen}
+                  aria-controls="retry-scope-options"
+                >
+                  <span className="truncate">
+                    {t(`retry.scopes.${retryScope}`, {
+                      count: retryCounts[retryScope],
+                    })}
+                  </span>
+                  <span
+                    className={`text-xs text-slate-400 transition-transform ${
+                      retryScopeMenuOpen ? "rotate-180" : ""
+                    }`}
+                    aria-hidden="true"
+                  >
+                    ▾
+                  </span>
+                </button>
+                {retryScopeMenuOpen && (
+                  <div
+                    id="retry-scope-options"
+                    role="listbox"
+                    aria-label={t("retry.scopeLabel")}
+                    className="absolute left-0 z-30 mt-1 w-52 overflow-hidden rounded-md border border-slate-600 bg-slate-900 py-1 shadow-xl shadow-slate-950/50"
+                  >
+                    {RETRY_SCOPES.map((scope) => (
+                      <button
+                        key={scope}
+                        type="button"
+                        role="option"
+                        aria-selected={retryScope === scope}
+                        onClick={() => {
+                          setRetryScope(scope);
+                          setRetryScopeMenuOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                          retryScope === scope
+                            ? "bg-indigo-500/15 text-indigo-100"
+                            : "text-slate-200 hover:bg-slate-800 hover:text-white"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {t(`retry.scopes.${scope}`, {
+                            count: retryCounts[scope],
+                          })}
+                        </span>
+                        {retryScope === scope && (
+                          <span className="text-indigo-300" aria-hidden="true">
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleRetry}
+                disabled={retrying || creating || retryCounts[retryScope] === 0}
+                className="rounded-r-md border-l border-slate-600 bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                title={t("retry.title")}
+              >
+                {retrying ? t("retry.running") : t("retry.action")}
+              </button>
+            </div>
             {stats.matched > 0 && (
               <button
                 type="button"
@@ -354,8 +500,11 @@ export default function MatchPage() {
           <TabButton active={tab === "all"} onClick={() => setTab("all")}>
             {t("tabs.all", { count: stats.total })}
           </TabButton>
-          <TabButton active={tab === "review"} onClick={() => setTab("review")}>
-            {t("tabs.review", { count: reviewIndices.length })}
+          <TabButton
+            active={tab === "ambiguous"}
+            onClick={() => setTab("ambiguous")}
+          >
+            {t("tabs.ambiguous", { count: ambiguousResultIndices.length })}
           </TabButton>
           <TabButton
             active={tab === "not_found"}
@@ -369,19 +518,21 @@ export default function MatchPage() {
         </div>
       </div>
 
-      {tab === "review" ? (
-        reviewIndices.length === 0 ? (
+      {tab === "ambiguous" ? (
+        ambiguousResultIndices.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-700 bg-slate-800/50 px-6 py-10 text-center text-slate-400">
-            {t("emptyReview")}
+            {t("emptyAmbiguous")}
           </div>
         ) : (
           <div className="space-y-5">
-            {reviewIndices.map((i) => (
+            {ambiguousResultIndices.map((i) => (
               <ReviewCard
                 key={i}
                 result={report.results[i]}
                 provider={report.provider}
                 busy={selectingIdx === i}
+                retrySelected={retrySelectedIndices.has(i)}
+                onToggleRetrySelected={() => toggleRetrySelected(i)}
                 collapsed={areReviewOptionsCollapsed(
                   report.results[i],
                   i,
@@ -414,6 +565,8 @@ export default function MatchPage() {
                   result={result}
                   provider={report.provider}
                   busy={selectingIdx === i}
+                  retrySelected={retrySelectedIndices.has(i)}
+                  onToggleRetrySelected={() => toggleRetrySelected(i)}
                   collapsed={areReviewOptionsCollapsed(
                     result,
                     i,
@@ -437,6 +590,8 @@ export default function MatchPage() {
                   key={i}
                   result={result}
                   provider={report.provider}
+                  retrySelected={retrySelectedIndices.has(i)}
+                  onToggleRetrySelected={() => toggleRetrySelected(i)}
                 />
               );
             })}
@@ -447,6 +602,7 @@ export default function MatchPage() {
           <table className="w-full text-left">
             <thead className="bg-slate-800 text-xs uppercase tracking-wide text-slate-400">
               <tr>
+                <th className="w-10 px-3 py-2">{t("table.retry")}</th>
                 <th className="px-3 py-2 w-12">{t("table.index")}</th>
                 <th className="px-3 py-2">{t("table.name")}</th>
                 <th className="px-3 py-2">{t("table.artists")}</th>
@@ -464,6 +620,17 @@ export default function MatchPage() {
                     key={i}
                     className="border-t border-slate-700 hover:bg-slate-800/60"
                   >
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={retrySelectedIndices.has(i)}
+                        onChange={() => toggleRetrySelected(i)}
+                        className="h-4 w-4 accent-indigo-500"
+                        aria-label={t("retry.selectTrack", {
+                          name: r.track.originalName,
+                        })}
+                      />
+                    </td>
                     <td className="px-3 py-2 text-sm text-slate-400">{i + 1}</td>
                     <td className="px-3 py-2 text-sm text-slate-100">
                       {r.track.originalName}
@@ -559,9 +726,13 @@ export default function MatchPage() {
 function NotFoundCard({
   result: r,
   provider,
+  retrySelected = false,
+  onToggleRetrySelected,
 }: {
   result: AppleMatchResult;
   provider: MusicProvider;
+  retrySelected?: boolean;
+  onToggleRetrySelected?: () => void;
 }) {
   const { t } = useTranslation("match");
   const artistLine = r.track.artists.join(", ");
@@ -569,6 +740,17 @@ function NotFoundCard({
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
       <div className="flex items-start gap-3">
+        {onToggleRetrySelected && (
+          <input
+            type="checkbox"
+            checked={retrySelected}
+            onChange={onToggleRetrySelected}
+            className="mt-6 h-4 w-4 flex-shrink-0 accent-indigo-500"
+            aria-label={t("retry.selectTrack", {
+              name: r.track.originalName,
+            })}
+          />
+        )}
         {r.track.albumCoverUrl ? (
           <img
             src={r.track.albumCoverUrl}
