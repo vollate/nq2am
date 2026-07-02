@@ -134,3 +134,55 @@ test("Apple Music matcher keeps ambiguity when cover art is missing", async () =
   assert.equal(result.status, "ambiguous");
   assert.equal(result.selectedId, undefined);
 });
+
+test("Apple Music retry only replaces not-found results", async () => {
+  const { retryNotFoundAppleMusic } = await loadMatcherModule();
+  const matchedTrack: NormalizedTrack = {
+    originalName: "Matched",
+    artists: ["Artist"],
+    source: { provider: "qq", raw: {} }
+  };
+  const missingTrack: NormalizedTrack = {
+    originalName: "Missing",
+    artists: ["Artist"],
+    source: { provider: "qq", raw: {} }
+  };
+  const manualNoMatchTrack: NormalizedTrack = {
+    originalName: "Manual no match",
+    artists: ["Artist"],
+    source: { provider: "qq", raw: {} }
+  };
+
+  const report = await retryNotFoundAppleMusic({
+    provider: "qq",
+    playlistId: "retry-only-not-found",
+    playlistName: "Retry only not found",
+    results: [
+      {
+        track: matchedTrack,
+        status: "matched",
+        selectedId: "apple-ok",
+        appleMusicId: "apple-ok",
+        candidates: [{ id: "apple-ok", name: "Matched", artistName: "Artist", score: 1 }]
+      },
+      {
+        track: missingTrack,
+        status: "not_found",
+        candidates: [],
+        reason: "No results from Apple Music search"
+      },
+      {
+        track: manualNoMatchTrack,
+        status: "not_found",
+        selectionSource: "manual",
+        candidates: [{ id: "apple-no", name: "Manual no match", artistName: "Artist", score: 0.9 }],
+        reason: "Marked as no match"
+      }
+    ]
+  });
+
+  assert.equal(report.results[0].status, "matched");
+  assert.equal(report.results[0].appleMusicId, "apple-ok");
+  assert.equal(report.results[1].status, "not_implemented");
+  assert.equal(report.results[2].status, "not_implemented");
+});

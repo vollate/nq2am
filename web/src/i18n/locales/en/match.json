@@ -28,9 +28,11 @@
   "tabs": {
     "all": "All ({{count}})",
     "review": "Needs review ({{count}})",
+    "not_found": "Not found ({{count}})",
     "matched": "Matched ({{count}})"
   },
   "emptyReview": "Nothing to review — every track is matched or has no candidates.",
+  "emptyNotFound": "No not-found tracks.",
   "reselect": "Reselect",
   "reselectTitle": "Reselect version",
   "noMatch": "Mark as no match",
@@ -44,6 +46,16 @@
   },
   "manual": "(manual)",
   "nativeNotice": "Found in the track's native region. It will be added correctly, but your library shows it using your account region's language.",
+  "notFoundNoReason": "No Apple Music candidate was found.",
+  "retryNotFound": "Retry not found ({{count}})",
+  "retryingNotFound": "Retrying…",
+  "retryNotFoundTitle": "Re-run matching only for tracks currently marked not found",
+  "goTop": "Go to top",
+  "reviewOptions": {
+    "selected": "Selected: {{name}}",
+    "noMatch": "Marked no match",
+    "show": "Show options"
+  },
   "createPlaylist": "Create Apple Music Playlist",
   "creating": "Creating…",
   "createdMessage": "Apple Music playlist created{{idSuffix}}.",

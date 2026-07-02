@@ -1,4 +1,5 @@
 import { loadCookies } from "../fetchers/auth.js";
+import { getNotFoundIndices } from "../matchFilters.js";
 import {
   type AppleCandidate,
   type AppleMatchReport,
@@ -328,6 +329,43 @@ export async function matchAppleMusic(
     provider: playlist.provider,
     playlistId: playlist.id,
     playlistName: playlist.name,
+    results
+  };
+}
+
+/**
+ * Re-run Apple Music matching only for results currently marked not_found,
+ * including manual "no match" rows, then merge those refreshed results back
+ * into the existing report.
+ */
+export async function retryNotFoundAppleMusic(
+  report: AppleMatchReport,
+  prefs: MatchPreferences = DEFAULT_MATCH_PREFERENCES,
+  onProgress?: (processed: number, total: number, result: AppleMatchResult) => void
+): Promise<AppleMatchReport> {
+  const retryIndices = getNotFoundIndices(report.results);
+  if (retryIndices.length === 0) {
+    return report;
+  }
+
+  const retryPlaylist: NormalizedPlaylist = {
+    provider: report.provider,
+    id: report.playlistId,
+    name: report.playlistName,
+    tracks: retryIndices.map((idx) => report.results[idx].track),
+    raw: {}
+  };
+  const retryReport = await matchAppleMusic(retryPlaylist, prefs, onProgress);
+  const results = report.results.slice();
+  for (const [pos, idx] of retryIndices.entries()) {
+    const next = retryReport.results[pos];
+    if (next) {
+      results[idx] = next;
+    }
+  }
+
+  return {
+    ...report,
     results
   };
 }

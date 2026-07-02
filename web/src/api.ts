@@ -128,6 +128,13 @@ export const api = {
     });
   },
 
+  async retryNotFound(playlistId: string): Promise<{ status: string; retried?: number }> {
+    return request<{ status: string; retried?: number }>(
+      `/api/match-apple/${encodeURIComponent(playlistId)}/retry-not-found`,
+      { method: "POST" },
+    );
+  },
+
   async getMatchJob(playlistId: string): Promise<MatchJob> {
     return request<MatchJob>(
       `/api/match-apple/${encodeURIComponent(playlistId)}`,

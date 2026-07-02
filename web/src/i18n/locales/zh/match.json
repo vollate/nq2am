@@ -28,9 +28,11 @@
   "tabs": {
     "all": "全部（{{count}}）",
     "review": "需复核（{{count}}）",
+    "not_found": "未找到（{{count}}）",
     "matched": "已匹配（{{count}}）"
   },
   "emptyReview": "无需复核 —— 每首歌曲均已匹配或没有候选项。",
+  "emptyNotFound": "没有未找到的歌曲。",
   "reselect": "重新选择",
   "reselectTitle": "重新选择版本",
   "noMatch": "标记为不匹配",
@@ -44,6 +46,16 @@
   },
   "manual": "（手动）",
   "nativeNotice": "在歌曲的母语区域找到。会正确加入，但你的资料库会按账号区域的语言显示。",
+  "notFoundNoReason": "未找到 Apple Music 候选项。",
+  "retryNotFound": "重试未找到（{{count}}）",
+  "retryingNotFound": "正在重试…",
+  "retryNotFoundTitle": "仅重新匹配当前标记为未找到的歌曲",
+  "goTop": "回到顶部",
+  "reviewOptions": {
+    "selected": "已选择：{{name}}",
+    "noMatch": "已标记不匹配",
+    "show": "显示选项"
+  },
   "createPlaylist": "创建 Apple Music 歌单",
   "creating": "正在创建…",
   "createdMessage": "已创建 Apple Music 歌单{{idSuffix}}。",

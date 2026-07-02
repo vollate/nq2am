@@ -1,5 +1,6 @@
 import { Router, type Router as RouterType } from "express";
-import { matchAppleMusic } from "../../src/index.js";
+import { matchAppleMusic, retryNotFoundAppleMusic } from "../../src/index.js";
+import { getNotFoundIndices } from "../../src/matchFilters.js";
 import { getPreferences } from "../preferences.js";
 import {
   getMatchReport,
@@ -71,6 +72,52 @@ router.get("/match-apple/:playlistId", async (req, res) => {
     error: task.error,
     report: report ?? null
   });
+});
+
+router.post("/match-apple/:playlistId/retry-not-found", async (req, res) => {
+  const { playlistId } = req.params;
+  const task = await getTask(playlistId);
+  if (!task) {
+    res.status(404).json({ error: "Task not found" });
+    return;
+  }
+
+  const report = getMatchReport(playlistId);
+  if (!report) {
+    res.status(404).json({ error: "Match report not found" });
+    return;
+  }
+
+  if (running.has(playlistId)) {
+    res.status(202).json({ status: "matching" });
+    return;
+  }
+
+  const retryTotal = getNotFoundIndices(report.results).length;
+  if (retryTotal === 0) {
+    res.json({ status: "matched", retried: 0 });
+    return;
+  }
+
+  running.add(playlistId);
+  setTaskStatus(playlistId, "matching");
+  setMatchProgress(playlistId, 0, retryTotal);
+
+  void (async () => {
+    try {
+      const prefs = await getPreferences();
+      const nextReport = await retryNotFoundAppleMusic(report, prefs, (processed, total) => {
+        setMatchProgress(playlistId, processed, total);
+      });
+      setMatchReport(playlistId, nextReport);
+    } catch (error) {
+      setTaskStatus(playlistId, "match_failed", (error as Error).message);
+    } finally {
+      running.delete(playlistId);
+    }
+  })();
+
+  res.status(202).json({ status: "matching", retried: retryTotal });
 });
 
 // Manually choose an Apple Music candidate for a track in the report.

@@ -4,8 +4,21 @@ import { Link, useParams } from "react-router";
 import { api } from "../api";
 import ProviderBadge from "../components/ProviderBadge";
 import ReviewCard from "../components/ReviewCard";
+import {
+  areReviewOptionsCollapsed,
+  collapseReviewOptionsAfterChoice,
+  toggleReviewOptions,
+} from "../../../src/reviewCollapse";
+import { shouldShowGoTopButton } from "../../../src/scrollUi";
+import { getNotFoundIndices, getReviewIndices } from "../../../src/matchFilters";
 import { useTasks } from "../tasks";
-import type { AppleMatchReport, AppleMatchStatus, MatchJob } from "../types";
+import type {
+  AppleMatchReport,
+  AppleMatchResult,
+  AppleMatchStatus,
+  MatchJob,
+  MusicProvider,
+} from "../types";
 
 const STATUS_STYLE: Record<AppleMatchStatus, string> = {
   matched: "bg-green-600/20 text-green-300 ring-green-500/40",
@@ -14,7 +27,7 @@ const STATUS_STYLE: Record<AppleMatchStatus, string> = {
   not_implemented: "bg-slate-600/30 text-slate-300 ring-slate-500/40",
 };
 
-type Tab = "all" | "review" | "matched";
+type Tab = "all" | "review" | "not_found" | "matched";
 
 export default function MatchPage() {
   const { t } = useTranslation(["match", "common"]);
@@ -24,18 +37,41 @@ export default function MatchPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [retryingNotFound, setRetryingNotFound] = useState(false);
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("all");
   const [selectingIdx, setSelectingIdx] = useState<number | null>(null);
   const [reselectIdx, setReselectIdx] = useState<number | null>(null);
+  const [pollNonce, setPollNonce] = useState(0);
+  const [showGoTop, setShowGoTop] = useState(false);
+  const [collapsedReviewOptions, setCollapsedReviewOptions] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [expandedReviewOptions, setExpandedReviewOptions] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   const report: AppleMatchReport | null = job?.report ?? null;
   const isMatching = job?.status === "matching";
 
   useEffect(() => {
     setActiveKey(id);
+    setLoading(true);
+    setCollapsedReviewOptions(new Set());
+    setExpandedReviewOptions(new Set());
   }, [id, setActiveKey]);
+
+  useEffect(() => {
+    function updateGoTopVisibility() {
+      setShowGoTop(shouldShowGoTopButton(window.scrollY));
+    }
+
+    updateGoTopVisibility();
+    window.addEventListener("scroll", updateGoTopVisibility, { passive: true });
+    return () => window.removeEventListener("scroll", updateGoTopVisibility);
+  }, []);
 
   // Load the job, then keep polling while the match is still running so the page
   // shows live progress and survives being navigated away and back.
@@ -62,13 +98,12 @@ export default function MatchPage() {
       }
     }
 
-    setLoading(true);
     void poll();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [id, refreshTasks]);
+  }, [id, refreshTasks, pollNonce]);
 
   const stats = useMemo(() => {
     const base = {
@@ -123,7 +158,37 @@ export default function MatchPage() {
     }
   }
 
-  async function chooseCandidate(idx: number, appleMusicId: string | null) {
+  async function handleRetryNotFound() {
+    if (notFoundIndices.length === 0) return;
+    setRetryError(null);
+    setCreateMessage(null);
+    setRetryingNotFound(true);
+    try {
+      await api.retryNotFound(id);
+      setTab("not_found");
+      setJob((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "matching",
+              progress: { processed: 0, total: notFoundIndices.length },
+            }
+          : prev,
+      );
+      setPollNonce((n) => n + 1);
+      void refreshTasks();
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRetryingNotFound(false);
+    }
+  }
+
+  async function chooseCandidate(
+    idx: number,
+    appleMusicId: string | null,
+    options: { collapseReviewOptions?: boolean } = {},
+  ) {
     setSelectingIdx(idx);
     try {
       const updated = await api.selectTrack(id, idx, appleMusicId);
@@ -134,6 +199,16 @@ export default function MatchPage() {
         results[idx] = updated;
         return { ...prev, report: { ...prev.report, results } };
       });
+      if (options.collapseReviewOptions) {
+        setCollapsedReviewOptions((prev) =>
+          collapseReviewOptionsAfterChoice(prev, idx),
+        );
+        setExpandedReviewOptions((prev) => {
+          const next = new Set(prev);
+          next.delete(idx);
+          return next;
+        });
+      }
       void refreshTasks();
       // Close the reselect popup (if open) once the new pick is saved.
       setReselectIdx(null);
@@ -144,17 +219,14 @@ export default function MatchPage() {
     }
   }
 
-  // Tracks needing manual attention: ambiguous, or not-found but with candidates.
   const reviewIndices = useMemo(() => {
     if (!report) return [];
-    return report.results
-      .map((r, i) => ({ r, i }))
-      .filter(
-        ({ r }) =>
-          r.status === "ambiguous" ||
-          (r.status === "not_found" && (r.candidates?.length ?? 0) > 0),
-      )
-      .map(({ i }) => i);
+    return getReviewIndices(report.results);
+  }, [report]);
+
+  const notFoundIndices = useMemo(() => {
+    if (!report) return [];
+    return getNotFoundIndices(report.results);
   }, [report]);
 
   if (loading) {
@@ -224,11 +296,55 @@ export default function MatchPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-white">
-          {report.playlistName ?? t("title")}
-        </h1>
-        <ProviderBadge provider={report.provider} />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h1 className="truncate text-2xl font-semibold text-white">
+              {report.playlistName ?? t("title")}
+            </h1>
+            <ProviderBadge provider={report.provider} />
+          </div>
+          <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
+            <button
+              type="button"
+              onClick={handleRetryNotFound}
+              disabled={retryingNotFound || creating || notFoundIndices.length === 0}
+              className="rounded-md border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-600 disabled:opacity-50"
+              title={t("retryNotFoundTitle")}
+            >
+              {retryingNotFound
+                ? t("retryingNotFound")
+                : t("retryNotFound", { count: notFoundIndices.length })}
+            </button>
+            {stats.matched > 0 && (
+              <button
+                type="button"
+                onClick={handleCreatePlaylist}
+                disabled={creating}
+                className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
+              >
+                {creating ? t("creating") : t("createPlaylist")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={exportReport}
+              className="rounded-md bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-600"
+            >
+              {t("exportReport")}
+            </button>
+          </div>
+        </div>
+        {(createError || retryError) && (
+          <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+            {createError ?? retryError}
+          </div>
+        )}
+        {createMessage && (
+          <div className="rounded-md border border-green-500/40 bg-green-500/10 px-4 py-2 text-sm text-green-200">
+            {createMessage}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -255,16 +371,24 @@ export default function MatchPage() {
         />
       </div>
 
-      <div className="flex items-center gap-1 border-b border-slate-700">
-        <TabButton active={tab === "all"} onClick={() => setTab("all")}>
-          {t("tabs.all", { count: stats.total })}
-        </TabButton>
-        <TabButton active={tab === "review"} onClick={() => setTab("review")}>
-          {t("tabs.review", { count: reviewIndices.length })}
-        </TabButton>
-        <TabButton active={tab === "matched"} onClick={() => setTab("matched")}>
-          {t("tabs.matched", { count: stats.matched })}
-        </TabButton>
+      <div className="sticky top-14 z-20 -mx-4 border-b border-slate-700 bg-slate-900/95 px-4 pt-2 backdrop-blur">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          <TabButton active={tab === "all"} onClick={() => setTab("all")}>
+            {t("tabs.all", { count: stats.total })}
+          </TabButton>
+          <TabButton active={tab === "review"} onClick={() => setTab("review")}>
+            {t("tabs.review", { count: reviewIndices.length })}
+          </TabButton>
+          <TabButton
+            active={tab === "not_found"}
+            onClick={() => setTab("not_found")}
+          >
+            {t("tabs.not_found", { count: notFoundIndices.length })}
+          </TabButton>
+          <TabButton active={tab === "matched"} onClick={() => setTab("matched")}>
+            {t("tabs.matched", { count: stats.matched })}
+          </TabButton>
+        </div>
       </div>
 
       {tab === "review" ? (
@@ -280,9 +404,64 @@ export default function MatchPage() {
                 result={report.results[i]}
                 provider={report.provider}
                 busy={selectingIdx === i}
-                onChoose={(appleMusicId) => chooseCandidate(i, appleMusicId)}
+                collapsed={areReviewOptionsCollapsed(
+                  report.results[i],
+                  i,
+                  collapsedReviewOptions,
+                  expandedReviewOptions,
+                )}
+                onToggleCollapsed={() => {
+                  setCollapsedReviewOptions((prev) => toggleReviewOptions(prev, i));
+                  setExpandedReviewOptions((prev) => toggleReviewOptions(prev, i));
+                }}
+                onChoose={(appleMusicId) =>
+                  chooseCandidate(i, appleMusicId, { collapseReviewOptions: true })
+                }
               />
             ))}
+          </div>
+        )
+      ) : tab === "not_found" ? (
+        notFoundIndices.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-700 bg-slate-800/50 px-6 py-10 text-center text-slate-400">
+            {t("emptyNotFound")}
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {notFoundIndices.map((i) => {
+              const result = report.results[i];
+              return (result.candidates?.length ?? 0) > 0 ? (
+                <ReviewCard
+                  key={i}
+                  result={result}
+                  provider={report.provider}
+                  busy={selectingIdx === i}
+                  collapsed={areReviewOptionsCollapsed(
+                    result,
+                    i,
+                    collapsedReviewOptions,
+                    expandedReviewOptions,
+                  )}
+                  onToggleCollapsed={() => {
+                    setCollapsedReviewOptions((prev) =>
+                      toggleReviewOptions(prev, i),
+                    );
+                    setExpandedReviewOptions((prev) => toggleReviewOptions(prev, i));
+                  }}
+                  onChoose={(appleMusicId) =>
+                    chooseCandidate(i, appleMusicId, {
+                      collapseReviewOptions: true,
+                    })
+                  }
+                />
+              ) : (
+                <NotFoundCard
+                  key={i}
+                  result={result}
+                  provider={report.provider}
+                />
+              );
+            })}
           </div>
         )
       ) : (
@@ -384,35 +563,65 @@ export default function MatchPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
-        {createError && (
-          <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
-            {createError}
-          </div>
+      {showGoTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-slate-600 bg-slate-800/95 text-lg font-semibold text-slate-100 shadow-lg shadow-slate-950/30 backdrop-blur hover:bg-slate-700"
+          aria-label={t("goTop")}
+          title={t("goTop")}
+        >
+          ↑
+        </button>
+      )}
+    </div>
+  );
+}
+
+function NotFoundCard({
+  result: r,
+  provider,
+}: {
+  result: AppleMatchResult;
+  provider: MusicProvider;
+}) {
+  const { t } = useTranslation("match");
+  const artistLine = r.track.artists.join(", ");
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
+      <div className="flex items-start gap-3">
+        {r.track.albumCoverUrl ? (
+          <img
+            src={r.track.albumCoverUrl}
+            alt=""
+            className="h-16 w-16 flex-shrink-0 rounded object-cover"
+          />
+        ) : (
+          <div className="h-16 w-16 flex-shrink-0 rounded bg-slate-700" />
         )}
-        {createMessage && (
-          <div className="rounded-md border border-green-500/40 bg-green-500/10 px-4 py-2 text-sm text-green-200">
-            {createMessage}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              {t("original.heading")}
+            </span>
+            <ProviderBadge provider={provider} />
+            <span className={`ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLE.not_found}`}>
+              {t("status.not_found")}
+            </span>
           </div>
-        )}
-        <div className="flex justify-end gap-2">
-          {stats.matched > 0 && (
-            <button
-              type="button"
-              onClick={handleCreatePlaylist}
-              disabled={creating}
-              className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
-            >
-              {creating ? t("creating") : t("createPlaylist")}
-            </button>
+          <div className="mt-1 truncate text-base font-semibold text-white">
+            {r.track.originalName}
+          </div>
+          <div className="truncate text-sm text-slate-300">{artistLine}</div>
+          {r.track.albumName && (
+            <div className="truncate text-xs text-slate-500">
+              {r.track.albumName}
+            </div>
           )}
-          <button
-            type="button"
-            onClick={exportReport}
-            className="rounded-md bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-600"
-          >
-            {t("exportReport")}
-          </button>
+          <div className="mt-2 text-xs text-slate-500">
+            {r.reason ?? t("notFoundNoReason")}
+          </div>
         </div>
       </div>
     </div>

@@ -2,7 +2,12 @@ export { normalizeNeteasePlaylist } from "./adapters/netease.js";
 
 export { normalizeQqPlaylist } from "./adapters/qq.js";
 export { appleCreatePlaylist, appleGetStorefront, appleSearch, appleSongsByIsrc } from "./apple/api.js";
-export { createAppleMusicPlaylist, detectStorefrontForTrack, matchAppleMusic } from "./apple/matcher.js";
+export {
+  createAppleMusicPlaylist,
+  detectStorefrontForTrack,
+  matchAppleMusic,
+  retryNotFoundAppleMusic
+} from "./apple/matcher.js";
 export { interactiveLogin, loadCookies, saveCookies } from "./fetchers/auth.js";
 export { closeBrowser, fetchWithBrowser } from "./fetchers/browser.js";
 export { fetchNeteasePlaylist, parseNeteasePlaylistId } from "./fetchers/netease.js";
