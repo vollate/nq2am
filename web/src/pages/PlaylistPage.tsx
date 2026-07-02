@@ -64,21 +64,6 @@ export default function PlaylistPage() {
     [id],
   );
 
-  function exportJson() {
-    if (!playlist) return;
-    const blob = new Blob([JSON.stringify(playlist, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${playlist.name ?? "playlist"}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   async function startMatch() {
     if (!playlist) return;
     setMatching(true);
@@ -121,31 +106,46 @@ export default function PlaylistPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start gap-4 rounded-lg border border-slate-700 bg-slate-800 p-4">
-        {playlist.coverUrl ? (
-          <img
-            src={playlist.coverUrl}
-            alt=""
-            className="h-28 w-28 flex-shrink-0 rounded-md object-cover"
-          />
-        ) : (
-          <div className="h-28 w-28 flex-shrink-0 rounded-md bg-slate-700" />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-2xl font-semibold text-white">
-              {playlist.name ?? t("untitled")}
-            </h1>
-            <ProviderBadge provider={playlist.provider} />
+      <div className="sticky top-14 z-20 -mx-4 border-b border-slate-700 bg-slate-900/95 px-4 py-3 backdrop-blur">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            {playlist.coverUrl ? (
+              <img
+                src={playlist.coverUrl}
+                alt=""
+                className="h-14 w-14 flex-shrink-0 rounded-md object-cover"
+              />
+            ) : (
+              <div className="h-14 w-14 flex-shrink-0 rounded-md bg-slate-700" />
+            )}
+            <div className="min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h1 className="truncate text-xl font-semibold text-white">
+                  {playlist.name ?? t("untitled")}
+                </h1>
+                <ProviderBadge provider={playlist.provider} />
+              </div>
+              {playlist.description && (
+                <p className="mt-1 line-clamp-1 text-sm text-slate-400">
+                  {playlist.description}
+                </p>
+              )}
+              <p className="mt-1 text-sm text-slate-400">
+                {t("trackCount", { count: playlist.tracks.length })}
+              </p>
+            </div>
           </div>
-          {playlist.description && (
-            <p className="mt-1 line-clamp-2 text-sm text-slate-400">
-              {playlist.description}
-            </p>
-          )}
-          <p className="mt-2 text-sm text-slate-400">
-            {t("trackCount", { count: playlist.tracks.length })}
-          </p>
+
+          <div className="flex flex-wrap justify-start gap-2 sm:flex-shrink-0 sm:justify-end">
+            <button
+              type="button"
+              onClick={startMatch}
+              disabled={matching}
+              className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
+            >
+              {matching ? t("matching") : t("matchToApple")}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -154,24 +154,6 @@ export default function PlaylistPage() {
         onUpdateTrack={handleUpdateTrack}
         onDeleteIndices={handleDelete}
       />
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          onClick={exportJson}
-          className="rounded-md border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-600"
-        >
-          {t("exportJson")}
-        </button>
-        <button
-          type="button"
-          onClick={startMatch}
-          disabled={matching}
-          className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
-        >
-          {matching ? t("matching") : t("matchToApple")}
-        </button>
-      </div>
     </div>
   );
 }

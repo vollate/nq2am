@@ -121,21 +121,6 @@ export default function MatchPage() {
     return base;
   }, [report]);
 
-  function exportReport() {
-    if (!report) return;
-    const blob = new Blob([JSON.stringify(report, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${report.playlistName ?? "match-report"}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   async function handleCreatePlaylist() {
     if (!report) return;
     setCreateError(null);
@@ -326,13 +311,6 @@ export default function MatchPage() {
                 {creating ? t("creating") : t("createPlaylist")}
               </button>
             )}
-            <button
-              type="button"
-              onClick={exportReport}
-              className="rounded-md bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-600"
-            >
-              {t("exportReport")}
-            </button>
           </div>
         </div>
         {(createError || retryError) && (

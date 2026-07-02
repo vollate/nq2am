@@ -60,7 +60,6 @@
   "creating": "正在创建…",
   "createdMessage": "已创建 Apple Music 歌单{{idSuffix}}。",
   "createdIdSuffix": "（ID：{{playlistId}}）",
-  "exportReport": "导出报告",
   "original": {
     "heading": "原曲",
     "songName": "歌曲名称",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import type { MatchPreferences } from "../types";
@@ -82,12 +82,12 @@ export default function MatchingSettings() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          <span>
+          <FieldTitle tooltip={t("matching.threshold.tooltip")}>
             {t("matching.threshold.label")}{" "}
             <span className="font-mono text-slate-100">
               {prefs.threshold.toFixed(2)}
             </span>
-          </span>
+          </FieldTitle>
           <input
             type="range"
             min={0}
@@ -103,12 +103,12 @@ export default function MatchingSettings() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          <span>
+          <FieldTitle tooltip={t("matching.ambiguityGap.tooltip")}>
             {t("matching.ambiguityGap.label")}{" "}
             <span className="font-mono text-slate-100">
               {prefs.ambiguousGap.toFixed(2)}
             </span>
-          </span>
+          </FieldTitle>
           <input
             type="range"
             min={0}
@@ -124,7 +124,9 @@ export default function MatchingSettings() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          <span>{t("matching.explicit.label")}</span>
+          <FieldTitle tooltip={t("matching.explicit.tooltip")}>
+            {t("matching.explicit.label")}
+          </FieldTitle>
           <select
             value={prefs.explicitPreference}
             onChange={(e) =>
@@ -149,7 +151,9 @@ export default function MatchingSettings() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-slate-300">
-          <span>{t("matching.storefront.label")}</span>
+          <FieldTitle tooltip={t("matching.storefront.tooltip")}>
+            {t("matching.storefront.label")}
+          </FieldTitle>
           <input
             type="text"
             value={prefs.storefront}
@@ -171,7 +175,9 @@ export default function MatchingSettings() {
             checked={prefs.preferDurationMatch}
             onChange={(e) => patch({ preferDurationMatch: e.target.checked })}
           />
-          {t("matching.preferDuration")}
+          <FieldTitle tooltip={t("matching.preferDurationTooltip")}>
+            {t("matching.preferDuration")}
+          </FieldTitle>
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-300">
           <input
@@ -180,7 +186,9 @@ export default function MatchingSettings() {
             checked={prefs.preferOriginalVersion}
             onChange={(e) => patch({ preferOriginalVersion: e.target.checked })}
           />
-          {t("matching.preferOriginal")}
+          <FieldTitle tooltip={t("matching.preferOriginalTooltip")}>
+            {t("matching.preferOriginal")}
+          </FieldTitle>
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-300">
           <input
@@ -189,7 +197,9 @@ export default function MatchingSettings() {
             checked={prefs.nativeSearch}
             onChange={(e) => patch({ nativeSearch: e.target.checked })}
           />
-          {t("matching.nativeSearch")}
+          <FieldTitle tooltip={t("matching.nativeSearchTooltip")}>
+            {t("matching.nativeSearch")}
+          </FieldTitle>
         </label>
         <span className="ml-6 text-xs text-slate-500">
           {t("matching.nativeSearchHelp")}
@@ -198,7 +208,9 @@ export default function MatchingSettings() {
 
       {prefs.nativeSearch && (
         <label className="flex max-w-sm flex-col gap-1 text-sm text-slate-300">
-          <span>{t("matching.cjk.label")}</span>
+          <FieldTitle tooltip={t("matching.cjk.tooltip")}>
+            {t("matching.cjk.label")}
+          </FieldTitle>
           <select
             value={prefs.cjkDetection}
             onChange={(e) =>
@@ -230,5 +242,37 @@ export default function MatchingSettings() {
         )}
       </div>
     </div>
+  );
+}
+
+function FieldTitle({
+  children,
+  tooltip,
+}: {
+  children: ReactNode;
+  tooltip: string;
+}) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <span className="min-w-0">{children}</span>
+      <HelpTooltip text={tooltip} />
+    </span>
+  );
+}
+
+function HelpTooltip({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex flex-shrink-0 align-middle">
+      <span
+        tabIndex={0}
+        aria-label={text}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-500 text-[10px] font-bold leading-none text-slate-300 outline-none transition hover:border-indigo-400 hover:text-indigo-200 focus:border-indigo-400 focus:text-indigo-200"
+      >
+        ?
+      </span>
+      <span className="pointer-events-none absolute left-1/2 top-6 z-30 hidden w-72 max-w-[calc(100vw-3rem)] -translate-x-1/2 rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-left text-xs font-normal leading-relaxed text-slate-200 shadow-xl group-hover:block group-focus-within:block">
+        {text}
+      </span>
+    </span>
   );
 }

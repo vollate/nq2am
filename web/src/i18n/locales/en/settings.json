@@ -27,15 +27,17 @@
   },
   "matching": {
     "title": "Matching",
-    "description": "How tracks are auto-matched to Apple Music. Changes apply the next time you run or retry a match.",
+    "description": "When you run a match, nq2am searches Apple Music for each source track, scores the candidates, then auto-selects only clear winners. Uncertain tracks go to Needs review or Not found. Changes apply the next time you run or retry a match.",
     "loading": "Loading matching preferences…",
     "threshold": {
       "label": "Match threshold:",
-      "help": "Minimum confidence to auto-accept a match."
+      "help": "Higher is safer but sends more tracks to review or not found.",
+      "tooltip": "Each candidate receives a score from title, artist, duration, and version hints. If the best score is below this value, it is not auto-selected; the track becomes not found with candidates kept for review."
     },
     "ambiguityGap": {
       "label": "Ambiguity gap:",
-      "help": "If the top two are closer than this, it needs review."
+      "help": "Higher means close choices are reviewed instead of auto-picked.",
+      "tooltip": "After the best candidate passes the threshold, nq2am compares it with the second-best score. If best minus second-best is smaller than this gap, it tries explicit/clean preference and cover similarity; if still unclear, the track goes to Needs review."
     },
     "explicit": {
       "label": "Explicit / clean preference",
@@ -44,24 +46,30 @@
         "explicit": "Prefer explicit",
         "clean": "Prefer clean"
       },
-      "help": "Tie-breaker when both versions exist."
+      "help": "Only used as a tie-breaker for close candidates.",
+      "tooltip": "This does not filter search results. It only chooses between otherwise close explicit and clean versions before the match falls back to cover comparison or manual review."
     },
     "storefront": {
       "label": "Storefront",
       "placeholder": "auto (from your account)",
-      "help": "Two-letter region, e.g. us, jp, cn. Leave blank to auto-detect."
+      "help": "Leave blank unless your Apple Music account region is detected wrong.",
+      "tooltip": "This is the Apple Music account region used when creating the final playlist, such as us, jp, or cn. Native-region search can still search JP/KR/CN first, then resolve the chosen song back to this account region by ISRC."
     },
     "preferDuration": "Prefer candidates whose duration is closest to the source track",
+    "preferDurationTooltip": "Adds a small score bonus when the Apple Music duration is close to the source track. The bonus is strongest within about 2 seconds and fades out by about 30 seconds.",
     "preferOriginal": "Prefer original studio versions over remaster / live / karaoke",
+    "preferOriginalTooltip": "Applies a small penalty to candidates whose title looks like remaster, live, karaoke, instrumental, cover, version, or remix, unless the source title also asks for that version.",
     "nativeSearch": "Search non-English tracks in their native region",
-    "nativeSearchHelp": "Searches Japanese/Korean/Chinese tracks in their home Apple Music region for better matches, then bridges back to your account region via ISRC.",
+    "nativeSearchTooltip": "For Japanese, Korean, and Chinese metadata, nq2am may search the matching Apple Music region first because local titles and covers are often more accurate there. If the chosen song has an ISRC, it then finds the same song in your account region for playlist creation.",
+    "nativeSearchHelp": "Useful for JP/KR/CN songs whose account-region metadata is romanized, translated, or missing.",
     "cjk": {
       "label": "Region detection for CJK tracks",
       "options": {
         "source": "By source (NetEase/QQ → China)",
         "text": "By text (kanji → Japan)"
       },
-      "help": "How to choose the native region. \"By source\" trusts the playlist provider; \"By text\" guesses from the characters."
+      "help": "Use text mode when many Japanese songs come from NetEase or QQ.",
+      "tooltip": "\"By source\" treats Han-only tracks from NetEase/QQ as China, while kana still maps to Japan and hangul maps to Korea. \"By text\" treats Han-only titles as Japanese, which helps Vocaloid/J-pop albums hosted on Chinese providers."
     },
     "save": "Save preferences",
     "saving": "Saving…",

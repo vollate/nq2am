@@ -60,7 +60,6 @@
   "creating": "Creating…",
   "createdMessage": "Apple Music playlist created{{idSuffix}}.",
   "createdIdSuffix": " (ID: {{playlistId}})",
-  "exportReport": "Export Report",
   "original": {
     "heading": "Original",
     "songName": "Song name",

@@ -4,7 +4,6 @@
   "fetchOne": "去获取一个",
   "untitled": "未命名歌单",
   "trackCount": "{{count}} 首歌曲",
-  "exportJson": "导出 JSON",
   "matchToApple": "匹配到 Apple Music →",
   "matching": "正在匹配…",
   "selectedCount": "已选择 {{count}} 项",
