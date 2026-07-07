@@ -11,7 +11,21 @@ type CandidateSimilarity = {
   similarity: number;
 };
 
-const FEATURE_SIZE = 16;
+type FeatureComparison = {
+  similarity: number;
+  colorSimilarity: number;
+};
+
+type SvgRectFeature = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rgb: [number, number, number];
+};
+
+const FEATURE_SIZE = 32;
+const HASH_SIZE = 8;
 const FETCH_TIMEOUT_MS = 8_000;
 const MIN_SIMILARITY = 0.74;
 const MIN_SIMILARITY_MARGIN = 0.08;
@@ -50,14 +64,16 @@ export async function chooseByCoverSimilarity(
     const scored = comparable
       .map((candidate, index) => {
         const feature = features[index + 1];
+        const comparison = feature ? compareFeatures(source, feature) : undefined;
         return feature
           ? {
               candidate,
-              similarity: compareFeatures(source, feature)
+              similarity: comparison?.similarity ?? 0,
+              colorSimilarity: comparison?.colorSimilarity ?? 0
             }
           : undefined;
       })
-      .filter((item): item is CandidateSimilarity => item !== undefined)
+      .filter((item): item is CandidateSimilarity & { colorSimilarity: number } => item !== undefined)
       .sort((a, b) => b.similarity - a.similarity);
 
     const best = scored[0];
@@ -69,6 +85,9 @@ export async function chooseByCoverSimilarity(
       return undefined;
     }
     if (best.similarity - second.similarity < MIN_SIMILARITY_MARGIN) {
+      return undefined;
+    }
+    if (best.colorSimilarity - second.colorSimilarity < MIN_SIMILARITY_MARGIN) {
       return undefined;
     }
 
@@ -157,14 +176,38 @@ async function extractFeatures(dataUrls: string[]): Promise<(ArtworkFeature | un
               luminance.push(0.299 * pr + 0.587 * pg + 0.114 * pb);
             }
 
-            const avgLum = luminance.reduce((sum, value) => sum + value, 0) / luminance.length;
+            const dct = lowFrequencyDct(luminance, size, 8);
+            const withoutDc = dct.slice(1);
+            const median = [...withoutDc].sort((a, b) => a - b)[Math.floor(withoutDc.length / 2)];
+
             return {
-              hash: luminance.map((value) => (value >= avgLum ? 1 : 0)),
+              hash: withoutDc.map((value) => (value >= median ? 1 : 0)),
               avg: [r / pixelCount, g / pixelCount, b / pixelCount] as [number, number, number]
             };
           } catch {
             return undefined;
           }
+        }
+
+        function lowFrequencyDct(values: number[], size: number, hashSize: number) {
+          const coefficients: number[] = [];
+          for (let v = 0; v < hashSize; v += 1) {
+            for (let u = 0; u < hashSize; u += 1) {
+              let sum = 0;
+              for (let y = 0; y < size; y += 1) {
+                for (let x = 0; x < size; x += 1) {
+                  sum +=
+                    values[y * size + x] *
+                    Math.cos(((2 * x + 1) * u * Math.PI) / (2 * size)) *
+                    Math.cos(((2 * y + 1) * v * Math.PI) / (2 * size));
+                }
+              }
+              const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
+              const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
+              coefficients.push((2 / size) * cu * cv * sum);
+            }
+          }
+          return coefficients;
         }
 
         return Promise.all(urls.map(featureFor));
@@ -190,16 +233,110 @@ function featureFromSvgDataUrl(dataUrl: string): ArtworkFeature | undefined {
   const meta = dataUrl.slice(0, comma);
   const body = dataUrl.slice(comma + 1);
   const svg = meta.includes(";base64") ? Buffer.from(body, "base64").toString("utf8") : decodeURIComponent(body);
-  const fill = svg.match(/\bfill=["']([^"']+)["']/i)?.[1];
-  const rgb = fill ? parseColor(fill) : undefined;
-  if (!rgb) {
+  return featureFromSimpleSvgRects(svg);
+}
+
+function featureFromSimpleSvgRects(svg: string): ArtworkFeature | undefined {
+  const svgTag = svg.match(/<svg\b[^>]*>/i)?.[0];
+  if (!svgTag) return undefined;
+
+  const svgWidth = numberAttr(svgTag, "width");
+  const svgHeight = numberAttr(svgTag, "height");
+  if (!svgWidth || !svgHeight) return undefined;
+
+  const parsedRects = [...svg.matchAll(/<rect\b[^>]*>/gi)].map((match) => {
+    const tag = match[0];
+    const fill = stringAttr(tag, "fill");
+    const rgb = fill ? parseColor(fill) : undefined;
+    if (!rgb) return undefined;
+    return {
+      x: numberAttr(tag, "x") ?? 0,
+      y: numberAttr(tag, "y") ?? 0,
+      width: numberAttr(tag, "width") ?? svgWidth,
+      height: numberAttr(tag, "height") ?? svgHeight,
+      rgb
+    };
+  });
+
+  if (parsedRects.length === 0 || parsedRects.some((rect) => rect === undefined)) {
     return undefined;
   }
+  const rects = parsedRects as SvgRectFeature[];
 
+  const pixels: [number, number, number][] = [];
+  for (let y = 0; y < FEATURE_SIZE; y += 1) {
+    for (let x = 0; x < FEATURE_SIZE; x += 1) {
+      const sx = ((x + 0.5) / FEATURE_SIZE) * svgWidth;
+      const sy = ((y + 0.5) / FEATURE_SIZE) * svgHeight;
+      const rect = findCoveringRect(rects, sx, sy);
+      pixels.push(rect?.rgb ?? [0, 0, 0]);
+    }
+  }
+
+  return featureFromPixels(pixels, FEATURE_SIZE);
+}
+
+function findCoveringRect(rects: SvgRectFeature[], x: number, y: number): SvgRectFeature | undefined {
+  for (let i = rects.length - 1; i >= 0; i -= 1) {
+    const rect = rects[i];
+    if (x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height) {
+      return rect;
+    }
+  }
+  return undefined;
+}
+
+function numberAttr(tag: string, name: string): number | undefined {
+  const value = tag.match(new RegExp(`\\b${name}=["']([^"']+)["']`, "i"))?.[1];
+  if (!value) return undefined;
+  const numeric = Number.parseFloat(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+}
+
+function stringAttr(tag: string, name: string): string | undefined {
+  return tag.match(new RegExp(`\\b${name}=["']([^"']+)["']`, "i"))?.[1];
+}
+
+function featureFromPixels(pixels: [number, number, number][], size: number): ArtworkFeature {
+  const luminance: number[] = [];
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (const [pr, pg, pb] of pixels) {
+    r += pr;
+    g += pg;
+    b += pb;
+    luminance.push(0.299 * pr + 0.587 * pg + 0.114 * pb);
+  }
+
+  const dct = lowFrequencyDct(luminance, size, HASH_SIZE);
+  const withoutDc = dct.slice(1);
+  const median = [...withoutDc].sort((a, b) => a - b)[Math.floor(withoutDc.length / 2)];
   return {
-    hash: Array.from({ length: FEATURE_SIZE * FEATURE_SIZE }, () => 1),
-    avg: rgb
+    hash: withoutDc.map((value) => (value >= median ? 1 : 0)),
+    avg: [r / pixels.length, g / pixels.length, b / pixels.length]
   };
+}
+
+function lowFrequencyDct(values: number[], size: number, hashSize: number): number[] {
+  const coefficients: number[] = [];
+  for (let v = 0; v < hashSize; v += 1) {
+    for (let u = 0; u < hashSize; u += 1) {
+      let sum = 0;
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          sum +=
+            values[y * size + x] *
+            Math.cos(((2 * x + 1) * u * Math.PI) / (2 * size)) *
+            Math.cos(((2 * y + 1) * v * Math.PI) / (2 * size));
+        }
+      }
+      const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
+      const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
+      coefficients.push((2 / size) * cu * cv * sum);
+    }
+  }
+  return coefficients;
 }
 
 function parseColor(color: string): [number, number, number] | undefined {
@@ -237,12 +374,15 @@ function parseColor(color: string): [number, number, number] | undefined {
   return undefined;
 }
 
-function compareFeatures(a: ArtworkFeature, b: ArtworkFeature): number {
+function compareFeatures(a: ArtworkFeature, b: ArtworkFeature): FeatureComparison {
   const hashSimilarity =
     a.hash.reduce((matches, bit, index) => matches + (bit === b.hash[index] ? 1 : 0), 0) / a.hash.length;
 
   const colorDistance = Math.sqrt((a.avg[0] - b.avg[0]) ** 2 + (a.avg[1] - b.avg[1]) ** 2 + (a.avg[2] - b.avg[2]) ** 2);
   const colorSimilarity = Math.max(0, 1 - colorDistance / (Math.sqrt(3) * 255));
 
-  return hashSimilarity * 0.6 + colorSimilarity * 0.4;
+  return {
+    similarity: hashSimilarity * 0.6 + colorSimilarity * 0.4,
+    colorSimilarity
+  };
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getAmbiguousIndices, getNotFoundIndices, getRetryIndices } from "../src/matchFilters.js";
+import { getAmbiguousIndices, getNotFoundIndices, getRetryIndices, retryScopeForTab } from "../src/matchFilters.js";
 
 const candidates = [{ id: "apple-1" }];
 
@@ -38,4 +38,11 @@ test("retry scopes select the expected result indices", () => {
   assert.deepEqual(getRetryIndices(results, "ambiguous"), [1]);
   assert.deepEqual(getRetryIndices(results, "all"), [0, 1, 2, 3]);
   assert.deepEqual(getRetryIndices(results, "selected", [2, 1, 2, 99, -1]), [2, 1]);
+});
+
+test("retry scope follows retryable review tabs", () => {
+  assert.equal(retryScopeForTab("ambiguous", "not_found"), "ambiguous");
+  assert.equal(retryScopeForTab("not_found", "ambiguous"), "not_found");
+  assert.equal(retryScopeForTab("all", "ambiguous"), "ambiguous");
+  assert.equal(retryScopeForTab("matched", "selected"), "selected");
 });

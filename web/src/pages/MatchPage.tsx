@@ -13,6 +13,7 @@ import { shouldShowGoTopButton } from "../../../src/scrollUi";
 import {
   getAmbiguousIndices,
   getNotFoundIndices,
+  retryScopeForTab,
 } from "../../../src/matchFilters";
 import { useTasks } from "../tasks";
 import type {
@@ -20,6 +21,7 @@ import type {
   AppleMatchResult,
   AppleMatchStatus,
   MatchJob,
+  MatchReviewTab,
   MatchRetryScope,
   MusicProvider,
 } from "../types";
@@ -31,7 +33,6 @@ const STATUS_STYLE: Record<AppleMatchStatus, string> = {
   not_implemented: "bg-slate-600/30 text-slate-300 ring-slate-500/40",
 };
 
-type Tab = "all" | "ambiguous" | "not_found" | "matched";
 const RETRY_SCOPES: MatchRetryScope[] = [
   "not_found",
   "ambiguous",
@@ -54,7 +55,7 @@ export default function MatchPage() {
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("all");
+  const [tab, setTab] = useState<MatchReviewTab>("all");
   const [selectingIdx, setSelectingIdx] = useState<number | null>(null);
   const [reselectIdx, setReselectIdx] = useState<number | null>(null);
   const [pollNonce, setPollNonce] = useState(0);
@@ -105,6 +106,10 @@ export default function MatchPage() {
       setRetryScopeMenuOpen(false);
     }
   }, [creating, retrying]);
+
+  useEffect(() => {
+    setRetryScope((scope) => retryScopeForTab(tab, scope));
+  }, [tab]);
 
   // Load the job, then keep polling while the match is still running so the page
   // shows live progress and survives being navigated away and back.

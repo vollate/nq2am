@@ -4,6 +4,7 @@ type MatchFilterResult = {
 };
 
 export type MatchRetryScope = "not_found" | "ambiguous" | "selected" | "all";
+export type MatchReviewTab = "all" | "ambiguous" | "not_found" | "matched";
 
 export function getAmbiguousIndices(results: readonly MatchFilterResult[]): number[] {
   return results
@@ -40,4 +41,11 @@ export function getRetryIndices(
     });
   }
   return getNotFoundIndices(results);
+}
+
+export function retryScopeForTab(tab: MatchReviewTab, currentScope: MatchRetryScope): MatchRetryScope {
+  if (tab === "ambiguous" || tab === "not_found") {
+    return tab;
+  }
+  return currentScope;
 }

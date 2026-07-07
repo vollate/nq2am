@@ -6,6 +6,7 @@ export {
   createAppleMusicPlaylist,
   detectStorefrontForTrack,
   matchAppleMusic,
+  refreshAppleMatchReportCandidates,
   retryAppleMusicResults,
   retryNotFoundAppleMusic
 } from "./apple/matcher.js";

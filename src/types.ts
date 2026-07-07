@@ -33,6 +33,24 @@ export type AppleMatchStatus = "not_implemented" | "matched" | "not_found" | "am
 
 export type AppleContentRating = "explicit" | "clean";
 
+export type AppleScoreBreakdown = {
+  total: number;
+  fields: {
+    title: number;
+    artist: number;
+    album: number;
+    duration: number;
+    version: number;
+  };
+  weights: {
+    title: number;
+    artist: number;
+    album: number;
+    duration: number;
+    version: number;
+  };
+};
+
 /** A single Apple Music catalog candidate for a normalized track. */
 export type AppleCandidate = {
   id: string;
@@ -45,6 +63,7 @@ export type AppleCandidate = {
   releaseDate?: string;
   contentRating?: AppleContentRating;
   score: number;
+  scoreBreakdown?: AppleScoreBreakdown;
   /** ISRC recording id, when available — used to bridge across storefronts. */
   isrc?: string;
   /**

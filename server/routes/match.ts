@@ -1,5 +1,5 @@
 import { type Response, Router, type Router as RouterType } from "express";
-import { matchAppleMusic, retryAppleMusicResults } from "../../src/index.js";
+import { matchAppleMusic, refreshAppleMatchReportCandidates, retryAppleMusicResults } from "../../src/index.js";
 import { getRetryIndices, type MatchRetryScope } from "../../src/matchFilters.js";
 import { getPreferences } from "../preferences.js";
 import {
@@ -137,7 +137,16 @@ router.get("/match-apple/:playlistId", async (req, res) => {
     return;
   }
 
-  const report = getMatchReport(req.params.playlistId);
+  let report = getMatchReport(req.params.playlistId);
+  if (report) {
+    const prefs = await getPreferences();
+    const refreshed = await refreshAppleMatchReportCandidates(report, prefs);
+    if (refreshed !== report) {
+      setMatchReport(req.params.playlistId, refreshed);
+      report = refreshed;
+    }
+  }
+
   res.json({
     status: task.status,
     progress: task.matchProgress,

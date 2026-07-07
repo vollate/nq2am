@@ -11,16 +11,10 @@ import {
 } from "../types.js";
 import { type AppleSong, appleCreatePlaylist, appleGetStorefront, appleSearch, appleSongsByIsrc } from "./api.js";
 import { chooseByCoverSimilarity } from "./artwork.js";
+import { albumSimilarity, compactAlbumText, compactText, scoreAppleSong } from "./scoring.js";
 
 /** Number of candidates kept per track so the user can override the pick. */
 const MAX_CANDIDATES = 8;
-
-/** Tokens that indicate a non-original version (used by preferOriginalVersion). */
-const VERSION_TOKENS = ["remaster", "remastered", "live", "karaoke", "instrumental", "cover", "version", "remix"];
-
-function normalizeText(s: string): string {
-  return s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-}
 
 /**
  * Pick the Apple Music storefront whose catalog best holds a track's original
@@ -57,7 +51,11 @@ function buildArtworkUrl(song: AppleSong): string | undefined {
   return art.url.replace("{w}", "200").replace("{h}", "200");
 }
 
-function toCandidate(song: AppleSong, score: number, storefront: string): AppleCandidate {
+function toCandidate(
+  song: AppleSong,
+  scoreBreakdown: ReturnType<typeof scoreAppleSong>,
+  storefront: string
+): AppleCandidate {
   return {
     id: song.id,
     name: song.attributes.name,
@@ -68,65 +66,89 @@ function toCandidate(song: AppleSong, score: number, storefront: string): AppleC
     durationMs: song.attributes.durationInMillis,
     releaseDate: song.attributes.releaseDate,
     contentRating: song.attributes.contentRating,
-    score,
+    score: scoreBreakdown.total,
+    scoreBreakdown,
     isrc: song.attributes.isrc,
     storefront
   };
 }
 
-/**
- * Base text similarity between a track and an Apple song (name + artist).
- * Returns 0–1. Duration/version/explicit rules are applied on top of this.
- */
-function baseScore(track: NormalizedTrack, song: AppleSong): number {
-  const trackName = normalizeText(track.originalName);
-  const songName = normalizeText(song.attributes.name);
-  const trackArtist = normalizeText(track.artists[0] ?? "");
-  const songArtist = normalizeText(song.attributes.artistName);
-
-  let nameScore = 0;
-  if (trackName === songName) {
-    nameScore = 1;
-  } else if (songName.includes(trackName) || trackName.includes(songName)) {
-    nameScore = 0.7;
-  }
-
-  let artistScore = 0;
-  if (trackArtist === songArtist) {
-    artistScore = 1;
-  } else if (songArtist.includes(trackArtist) || trackArtist.includes(songArtist)) {
-    artistScore = 0.7;
-  }
-
-  return nameScore * 0.6 + artistScore * 0.4;
+function candidateToSong(candidate: AppleCandidate): AppleSong {
+  return {
+    id: candidate.id,
+    type: "songs",
+    attributes: {
+      name: candidate.name,
+      artistName: candidate.artistName,
+      albumName: candidate.albumName ?? "",
+      durationInMillis: candidate.durationMs,
+      releaseDate: candidate.releaseDate,
+      isrc: candidate.isrc,
+      url: candidate.url,
+      contentRating: candidate.contentRating,
+      artwork: candidate.artworkUrl ? { url: candidate.artworkUrl } : undefined
+    }
+  };
 }
 
-/**
- * Apply configurable rule bonuses/penalties to a base score. Kept small so text
- * similarity stays dominant; rules mainly break ties between close versions.
- */
-function applyRules(base: number, track: NormalizedTrack, song: AppleSong, prefs: MatchPreferences): number {
-  let score = base;
-
-  // Duration closeness: up to +0.1 when within ~2s, fading to 0 by ~30s off.
-  if (prefs.preferDurationMatch && track.durationMs && song.attributes.durationInMillis) {
-    const diffSec = Math.abs(track.durationMs - song.attributes.durationInMillis) / 1000;
-    const bonus = Math.max(0, 0.1 * (1 - diffSec / 30));
-    score += bonus;
+function mergePreservedCandidateFields(
+  refreshed: AppleMatchResult,
+  previousCandidates: AppleCandidate[]
+): AppleMatchResult {
+  if (!refreshed.candidates) {
+    return refreshed;
   }
 
-  // Version type: penalize remaster/live/karaoke/etc. unless the source name
-  // also carries that token (so a track literally titled "... (Live)" isn't hurt).
-  if (prefs.preferOriginalVersion) {
-    const songName = song.attributes.name.toLowerCase();
-    const srcName = track.originalName.toLowerCase();
-    const hasExtraVersion = VERSION_TOKENS.some((t) => songName.includes(t) && !srcName.includes(t));
-    if (hasExtraVersion) {
-      score -= 0.08;
-    }
-  }
+  const previousById = new Map(previousCandidates.map((candidate) => [candidate.id, candidate]));
+  const candidates = refreshed.candidates.map((candidate) => {
+    const previous = previousById.get(candidate.id);
+    return previous
+      ? {
+          ...candidate,
+          addableId: previous.addableId,
+          artworkUrl: previous.artworkUrl ?? candidate.artworkUrl,
+          storefront: previous.storefront ?? candidate.storefront
+        }
+      : candidate;
+  });
+  const selected = refreshed.selectedId
+    ? candidates.find((candidate) => candidate.id === refreshed.selectedId)
+    : undefined;
 
-  return score;
+  return {
+    ...refreshed,
+    candidates,
+    appleMusicId: selected?.addableId ?? refreshed.appleMusicId,
+    appleMusicUrl: selected?.url ?? refreshed.appleMusicUrl
+  };
+}
+
+function resultChanged(previous: AppleMatchResult, next: AppleMatchResult): boolean {
+  if (previous.status !== next.status) return true;
+  if (previous.selectedId !== next.selectedId) return true;
+  if (previous.appleMusicId !== next.appleMusicId) return true;
+  if (previous.reason !== next.reason) return true;
+
+  const previousCandidates = previous.candidates ?? [];
+  const nextCandidates = next.candidates ?? [];
+  if (previousCandidates.length !== nextCandidates.length) return true;
+
+  return nextCandidates.some((candidate, index) => {
+    const previousCandidate = previousCandidates[index];
+    return (
+      previousCandidate.id !== candidate.id ||
+      previousCandidate.score !== candidate.score ||
+      previousCandidate.scoreBreakdown?.total !== candidate.scoreBreakdown?.total
+    );
+  });
+}
+
+function shouldRefreshExistingCandidates(result: AppleMatchResult): result is AppleMatchResult & {
+  candidates: AppleCandidate[];
+} {
+  if (result.selectionSource === "manual") return false;
+  if (!result.candidates || result.candidates.length === 0) return false;
+  return result.status === "ambiguous" || result.status === "not_found";
 }
 
 /** Tie-break preference for explicit/clean when scores are otherwise equal. */
@@ -139,15 +161,97 @@ function explicitRank(candidate: AppleCandidate, prefs: MatchPreferences): numbe
   return candidate.contentRating === "clean" ? 1 : 0;
 }
 
-function exactAlbumMatch(track: NormalizedTrack, candidates: AppleCandidate[]): AppleCandidate | undefined {
-  const sourceAlbum = normalizeText(track.albumName ?? "");
-  if (!sourceAlbum) return undefined;
-
-  const matches = candidates.filter((candidate) => normalizeText(candidate.albumName ?? "") === sourceAlbum);
-  return matches.length === 1 ? matches[0] : undefined;
+function hasEquivalentDuration(left: AppleCandidate, right: AppleCandidate): boolean {
+  if (!left.durationMs || !right.durationMs) {
+    return left.durationMs === right.durationMs;
+  }
+  return Math.abs(left.durationMs - right.durationMs) <= 2_000;
 }
 
-function matchedResult(track: NormalizedTrack, candidates: AppleCandidate[], winner: AppleCandidate): AppleMatchResult {
+function isEquivalentCandidate(left: AppleCandidate, right: AppleCandidate): boolean {
+  return (
+    compactText(left.name) === compactText(right.name) &&
+    compactText(left.artistName) === compactText(right.artistName) &&
+    compactAlbumText(left.albumName ?? "") === compactAlbumText(right.albumName ?? "") &&
+    hasEquivalentDuration(left, right)
+  );
+}
+
+function matchesSourceAlbum(track: NormalizedTrack, candidate: AppleCandidate): boolean {
+  const sourceAlbum = compactAlbumText(track.albumName ?? "");
+  return Boolean(sourceAlbum) && compactAlbumText(candidate.albumName ?? "") === sourceAlbum;
+}
+
+function chooseIndistinguishableDuplicate(
+  track: NormalizedTrack,
+  candidates: AppleCandidate[]
+): AppleCandidate | undefined {
+  const best = candidates[0];
+  if (!best || candidates.length < 2) return undefined;
+  if (!candidates.every((candidate) => matchesSourceAlbum(track, candidate))) return undefined;
+  return candidates.every((candidate) => isEquivalentCandidate(best, candidate)) ? best : undefined;
+}
+
+function chooseByAlbumSimilarity(track: NormalizedTrack, candidates: AppleCandidate[]): AppleCandidate | undefined {
+  const sourceAlbum = compactAlbumText(track.albumName ?? "");
+  if (!sourceAlbum) return undefined;
+
+  const exactMatches = candidates.filter((candidate) => compactAlbumText(candidate.albumName ?? "") === sourceAlbum);
+  if (exactMatches.length === 1) {
+    return exactMatches[0];
+  }
+
+  const scored = candidates
+    .map((candidate) => ({
+      candidate,
+      albumScore: candidate.scoreBreakdown?.fields.album ?? albumSimilarity(track.albumName, candidate.albumName)
+    }))
+    .sort((a, b) => b.albumScore - a.albumScore);
+
+  const best = scored[0];
+  const second = scored[1];
+  if (!best || !second) return undefined;
+  if (best.albumScore < 0.72) return undefined;
+  if (best.albumScore - second.albumScore < 0.12) return undefined;
+  return best.candidate;
+}
+
+function chooseByDurationSimilarity(candidates: AppleCandidate[]): AppleCandidate | undefined {
+  const scored = candidates
+    .map((candidate) => ({
+      candidate,
+      durationScore: candidate.scoreBreakdown?.fields.duration ?? 0,
+      titleScore: candidate.scoreBreakdown?.fields.title ?? 0,
+      artistScore: candidate.scoreBreakdown?.fields.artist ?? 0,
+      versionScore: candidate.scoreBreakdown?.fields.version ?? 0
+    }))
+    .sort((a, b) => b.durationScore - a.durationScore);
+
+  const best = scored[0];
+  const second = scored[1];
+  if (!best || !second) return undefined;
+  if (best.durationScore < 0.95) return undefined;
+  if (best.durationScore - second.durationScore < 0.5) return undefined;
+  if (best.titleScore < 0.8 || best.artistScore < 0.5) return undefined;
+  if (best.versionScore < 0.8) return undefined;
+  return best.candidate;
+}
+
+function scoreGapReason(best: AppleCandidate, second: AppleCandidate | undefined, prefs: MatchPreferences): string {
+  if (!second) {
+    return `score ${best.score.toFixed(2)}`;
+  }
+
+  const gap = best.score - second.score;
+  return `best ${best.score.toFixed(2)} vs second ${second.score.toFixed(2)}; gap ${gap.toFixed(2)} / required ${prefs.ambiguousGap.toFixed(2)}`;
+}
+
+function matchedResult(
+  track: NormalizedTrack,
+  candidates: AppleCandidate[],
+  winner: AppleCandidate,
+  reason?: string
+): AppleMatchResult {
   return {
     track,
     status: "matched",
@@ -155,7 +259,8 @@ function matchedResult(track: NormalizedTrack, candidates: AppleCandidate[], win
     selectedId: winner.id,
     selectionSource: "auto",
     appleMusicId: winner.id,
-    appleMusicUrl: winner.url
+    appleMusicUrl: winner.url,
+    reason
   };
 }
 
@@ -171,8 +276,8 @@ export async function matchSingleTrack(
 
   const scored = results
     .map((song) => {
-      const score = applyRules(baseScore(track, song), track, song, prefs);
-      return toCandidate(song, score, storefront);
+      const scoreBreakdown = scoreAppleSong(track, song, prefs);
+      return toCandidate(song, scoreBreakdown, storefront);
     })
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
@@ -184,11 +289,26 @@ export async function matchSingleTrack(
   const best = scored[0];
 
   if (best.score < prefs.threshold) {
+    const durationChoice = chooseByDurationSimilarity(scored);
+    if (
+      durationChoice &&
+      best.score - durationChoice.score < prefs.ambiguousGap &&
+      durationChoice.score >= Math.max(0.75, prefs.threshold - 0.1)
+    ) {
+      const durationScore = durationChoice.scoreBreakdown?.fields.duration ?? 0;
+      return matchedResult(
+        track,
+        scored,
+        durationChoice,
+        `Selected by duration-backed version match (${durationScore.toFixed(2)}; score ${durationChoice.score.toFixed(2)} below threshold ${prefs.threshold.toFixed(2)} but title/artist/version agree)`
+      );
+    }
+
     return {
       track,
       status: "not_found",
       candidates: scored,
-      reason: `Best match score ${best.score.toFixed(2)} below threshold ${prefs.threshold.toFixed(2)}`
+      reason: `Best match score ${best.score.toFixed(2)} below threshold ${prefs.threshold.toFixed(2)} (${scoreGapReason(best, scored[1], prefs)})`
     };
   }
 
@@ -201,35 +321,67 @@ export async function matchSingleTrack(
     const secondRank = explicitRank(second, prefs);
     if (prefs.explicitPreference !== "none" && bestRank !== secondRank) {
       const winner = bestRank > secondRank ? best : second;
-      return matchedResult(track, scored, winner);
+      return matchedResult(
+        track,
+        scored,
+        winner,
+        `Selected by explicit/clean preference (${scoreGapReason(best, second, prefs)})`
+      );
     }
 
     const nearTied = scored.filter((candidate) => best.score - candidate.score < prefs.ambiguousGap);
-    const albumChoice = exactAlbumMatch(track, nearTied);
+    const duplicateChoice = chooseIndistinguishableDuplicate(track, nearTied);
+    if (duplicateChoice) {
+      return matchedResult(
+        track,
+        scored,
+        duplicateChoice,
+        `Selected first indistinguishable duplicate (${scoreGapReason(best, second, prefs)})`
+      );
+    }
+
+    const albumChoice = chooseByAlbumSimilarity(track, nearTied);
     if (albumChoice) {
-      return {
-        ...matchedResult(track, scored, albumChoice),
-        reason: "Selected by exact album match"
-      };
+      const albumScore =
+        albumChoice.scoreBreakdown?.fields.album ?? albumSimilarity(track.albumName, albumChoice.albumName);
+      return matchedResult(
+        track,
+        scored,
+        albumChoice,
+        `Selected by album match/similarity (${albumScore.toFixed(2)}; ${scoreGapReason(best, second, prefs)})`
+      );
+    }
+
+    const durationChoice = chooseByDurationSimilarity(nearTied);
+    if (durationChoice) {
+      const durationScore = durationChoice.scoreBreakdown?.fields.duration ?? 0;
+      return matchedResult(
+        track,
+        scored,
+        durationChoice,
+        `Selected by duration match (${durationScore.toFixed(2)}; ${scoreGapReason(best, second, prefs)})`
+      );
     }
 
     const coverChoice = await chooseByCoverSimilarity(track, nearTied);
     if (coverChoice) {
-      return {
-        ...matchedResult(track, scored, coverChoice.candidate),
-        reason: `Selected by album cover similarity (${coverChoice.similarity.toFixed(2)})`
-      };
+      return matchedResult(
+        track,
+        scored,
+        coverChoice.candidate,
+        `Selected by album cover similarity (${coverChoice.similarity.toFixed(2)}; ${scoreGapReason(best, second, prefs)})`
+      );
     }
 
     return {
       track,
       status: "ambiguous",
       candidates: scored,
-      reason: `Multiple close matches (${best.score.toFixed(2)} vs ${second.score.toFixed(2)})`
+      reason: `Multiple close matches (${scoreGapReason(best, second, prefs)}); no decisive explicit, album, duration, or cover tie-breaker`
     };
   }
 
-  return matchedResult(track, scored, best);
+  return matchedResult(track, scored, best, `Selected best match (${scoreGapReason(best, second, prefs)})`);
 }
 
 /**
@@ -395,6 +547,36 @@ export async function retryAppleMusicResults(
     ...report,
     results
   };
+}
+
+export async function refreshAppleMatchReportCandidates(
+  report: AppleMatchReport,
+  prefs: MatchPreferences = DEFAULT_MATCH_PREFERENCES
+): Promise<AppleMatchReport> {
+  const results: AppleMatchResult[] = [];
+  let changed = false;
+
+  for (const result of report.results) {
+    if (!shouldRefreshExistingCandidates(result)) {
+      results.push(result);
+      continue;
+    }
+
+    try {
+      const storefront = result.candidates.find((candidate) => candidate.storefront)?.storefront ?? prefs.storefront;
+      const songs = result.candidates.map(candidateToSong);
+      const refreshed = mergePreservedCandidateFields(
+        await matchSingleTrack(result.track, songs, storefront || "us", prefs),
+        result.candidates
+      );
+      results.push(refreshed);
+      changed ||= resultChanged(result, refreshed);
+    } catch {
+      results.push(result);
+    }
+  }
+
+  return changed ? { ...report, results } : report;
 }
 
 /**
