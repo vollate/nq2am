@@ -8,8 +8,9 @@ import type {
   NormalizedTrack
 } from "../types.js";
 import type { CandidateSimilarity } from "./artwork.js";
-import { compareArtistCredits, recordingTextSimilarity } from "./recordingMetadata.js";
+import { compareArtistCredits } from "./recordingMetadata.js";
 import { roundScore } from "./scoring.js";
+import { titleTextSimilarity } from "./titleNormalization.js";
 import { compareVersionRelation, versionConflictSummary, versionsCanGroup } from "./versionSemantics.js";
 
 export type CoverSimilarityChooser = (
@@ -54,10 +55,7 @@ function metadataCompatible(left: AppleCandidate, right: AppleCandidate, isrcBac
   const leftEvidence = left.evidence;
   const rightEvidence = right.evidence;
   if (!leftEvidence || !rightEvidence || !compatibleVersion(left, right)) return false;
-  const title = recordingTextSimilarity(
-    leftEvidence.parsedCandidate.baseTitle,
-    rightEvidence.parsedCandidate.baseTitle
-  );
+  const title = titleTextSimilarity(leftEvidence.parsedCandidate.baseTitle, rightEvidence.parsedCandidate.baseTitle);
   const artist = compareArtistCredits([left.artistName], [right.artistName]);
   const difference = durationDifference(left, right);
 

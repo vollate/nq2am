@@ -78,6 +78,8 @@
     "noMatch": "已标记不匹配",
     "show": "显示选项"
   },
+  "exportUnmatched": "导出未匹配 ({{count}})",
+  "exportUnmatchedTitle": "把未匹配的曲目导出为可移植的 .json 文件",
   "createPlaylist": "创建 Apple Music 歌单",
   "creating": "正在创建…",
   "createdMessage": "已创建 Apple Music 歌单{{idSuffix}}。",

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, detectProvider } from "../api";
 import ProviderBadge from "../components/ProviderBadge";
 import { useTasks } from "../tasks";
+import type { PortablePlaylistFile } from "../types";
 
 const DRAFT_KEY = "nq2am.fetchUrl";
 
@@ -14,10 +15,12 @@ export default function FetchPage() {
       : "",
   );
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { refresh, setActiveKey } = useTasks();
   const { t } = useTranslation("fetch");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const detected = useMemo(() => detectProvider(url.trim()), [url]);
 
@@ -49,6 +52,36 @@ export default function FetchPage() {
       setLoading(false);
     }
   }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset so selecting the same file again still fires onChange.
+    e.target.value = "";
+    if (!file) return;
+
+    setError(null);
+    setImporting(true);
+    try {
+      const text = await file.text();
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error(t("import.invalidJson"));
+      }
+      const portable = toPortableFile(parsed);
+      const { key } = await api.importPlaylist(portable);
+      setActiveKey(key);
+      await refresh();
+      navigate(`/playlist/${encodeURIComponent(key)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const busy = loading || importing;
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-16">
@@ -84,7 +117,7 @@ export default function FetchPage() {
 
         <button
           type="submit"
-          disabled={loading || !url.trim()}
+          disabled={busy || !url.trim()}
           className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 disabled:opacity-50"
         >
           {loading ? (
@@ -97,8 +130,66 @@ export default function FetchPage() {
           )}
         </button>
       </form>
+
+      <div className="mt-6 flex w-full items-center gap-3 text-xs text-slate-500">
+        <span className="h-px flex-1 bg-slate-700" />
+        {t("or")}
+        <span className="h-px flex-1 bg-slate-700" />
+      </div>
+
+      <div className="mt-6 w-full">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          onChange={handleImportFile}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={busy}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-100 hover:bg-slate-700 disabled:opacity-50"
+        >
+          {importing ? (
+            <>
+              <Spinner />
+              {t("importing")}
+            </>
+          ) : (
+            <>
+              <UploadIcon />
+              {t("importFile")}
+            </>
+          )}
+        </button>
+        <p className="mt-2 text-center text-xs text-slate-500">
+          {t("importHelp")}
+        </p>
+      </div>
     </div>
   );
+}
+
+/**
+ * Coerce parsed JSON into a portable playlist file. Accepts the
+ * `nq2am-playlist` envelope or a bare `{ tracks }` object; missing fields
+ * default so hand-written files still import. The server re-validates.
+ */
+function toPortableFile(parsed: unknown): PortablePlaylistFile {
+  const obj = (parsed ?? {}) as Record<string, unknown>;
+  const tracks = Array.isArray(obj.tracks) ? obj.tracks : [];
+  const provider = obj.provider === "qq" || obj.provider === "netease" || obj.provider === "apple"
+    ? obj.provider
+    : "netease";
+  return {
+    format: "nq2am-playlist",
+    version: 1,
+    name: typeof obj.name === "string" ? obj.name : undefined,
+    description: typeof obj.description === "string" ? obj.description : undefined,
+    provider,
+    tracks: tracks as PortablePlaylistFile["tracks"]
+  };
 }
 
 function Spinner() {
@@ -122,6 +213,25 @@ function Spinner() {
         fill="currentColor"
         d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
       />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg
+      className="h-4 w-4 text-slate-300"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
     </svg>
   );
 }

@@ -196,80 +196,39 @@ function facetsFromDescriptors(descriptors: ParsedRecordingMetadata["versionDesc
   return { recordingFacets, structuralFacets, releaseFacets };
 }
 
-function characterNgrams(value: string, size: number): string[] {
-  const compact = normalizeRecordingText(value).replace(/[^\p{L}\p{N}]/gu, "");
-  if (!compact) return [];
-  if (compact.length <= size) return [compact];
-  return Array.from({ length: compact.length - size + 1 }, (_, index) => compact.slice(index, index + size));
-}
-
-function multisetDice(left: readonly string[], right: readonly string[]): number {
-  if (left.length === 0 || right.length === 0) return 0;
-  const counts = new Map<string, number>();
-  for (const item of right) counts.set(item, (counts.get(item) ?? 0) + 1);
-  let overlap = 0;
-  for (const item of left) {
-    const count = counts.get(item) ?? 0;
-    if (count > 0) {
-      overlap += 1;
-      counts.set(item, count - 1);
-    }
-  }
-  return (2 * overlap) / (left.length + right.length);
-}
-
-export function characterNgramSimilarity(left: string, right: string, size = 2): number {
-  return roundEvidence(multisetDice(characterNgrams(left, size), characterNgrams(right, size)));
-}
-
-function jaroSimilarity(left: string, right: string): number {
-  if (left === right) return 1;
-  if (!left || !right) return 0;
-  const distance = Math.max(0, Math.floor(Math.max(left.length, right.length) / 2) - 1);
-  const leftMatches = new Array<boolean>(left.length).fill(false);
-  const rightMatches = new Array<boolean>(right.length).fill(false);
-  let matches = 0;
-
-  for (let index = 0; index < left.length; index += 1) {
-    const start = Math.max(0, index - distance);
-    const end = Math.min(index + distance + 1, right.length);
-    for (let other = start; other < end; other += 1) {
-      if (rightMatches[other] || left[index] !== right[other]) continue;
-      leftMatches[index] = true;
-      rightMatches[other] = true;
-      matches += 1;
-      break;
-    }
-  }
-  if (matches === 0) return 0;
-
-  const matchedLeft = [...left].filter((_char, index) => leftMatches[index]);
-  const matchedRight = [...right].filter((_char, index) => rightMatches[index]);
-  const transpositions =
-    matchedLeft.reduce((count, char, index) => count + (char === matchedRight[index] ? 0 : 1), 0) / 2;
-  return (matches / left.length + matches / right.length + (matches - transpositions) / matches) / 3;
-}
-
-export function shortNameSimilarity(left: string, right: string): number {
-  const a = normalizeRecordingText(left).replace(/[^\p{L}\p{N}]/gu, "");
-  const b = normalizeRecordingText(right).replace(/[^\p{L}\p{N}]/gu, "");
-  if (!a || !b) return 0;
-  const jaro = jaroSimilarity(a, b);
-  let prefix = 0;
-  while (prefix < Math.min(4, a.length, b.length) && a[prefix] === b[prefix]) prefix += 1;
-  return roundEvidence(jaro + prefix * 0.1 * (1 - jaro));
-}
-
-function tokens(value: string): string[] {
-  return normalizeRecordingText(value).match(/[\p{L}\p{N}]+/gu) ?? [];
-}
-
-export function tokenSimilarity(left: string, right: string): number {
-  return roundEvidence(multisetDice(tokens(left), tokens(right)));
-}
-
 export function identityCompactText(value: string): string {
   return foldHanToSimplified(normalizeRecordingText(value)).replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+/** Unicode code-point Levenshtein edit distance. */
+export function levenshteinDistance(leftValue: string, rightValue: string): number {
+  const left = Array.from(leftValue);
+  const right = Array.from(rightValue);
+  if (left.length === 0) return right.length;
+  if (right.length === 0) return left.length;
+
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  let current = new Array<number>(right.length + 1).fill(0);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    current[0] = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + substitutionCost
+      );
+    }
+    [previous, current] = [current, previous];
+  }
+  return previous[right.length];
+}
+
+/** Levenshtein distance normalized to 0–1 by the longer string's code-point length. */
+export function levenshteinSimilarity(left: string, right: string): number {
+  const length = Math.max(Array.from(left).length, Array.from(right).length);
+  if (length === 0) return 1;
+  return roundEvidence(1 - levenshteinDistance(left, right) / length);
 }
 
 export function recordingTextSimilarity(left: string, right: string): number {
@@ -277,13 +236,7 @@ export function recordingTextSimilarity(left: string, right: string): number {
   const b = identityCompactText(right);
   if (!a || !b) return 0;
   if (a === b) return 1;
-  return roundEvidence(
-    Math.max(
-      characterNgramSimilarity(a, b),
-      shortNameSimilarity(a, b),
-      tokenSimilarity(foldHanToSimplified(left), foldHanToSimplified(right))
-    )
-  );
+  return levenshteinSimilarity(a, b);
 }
 
 export function splitArtistCredits(values: readonly string[]): string[] {

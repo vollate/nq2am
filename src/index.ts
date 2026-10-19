@@ -1,5 +1,6 @@
+export type { PortablePlaylistFile, PortableTrack } from "./adapters/file.js";
+export { normalizePlaylistFile, toPortablePlaylist, toPortableTrack } from "./adapters/file.js";
 export { normalizeNeteasePlaylist } from "./adapters/netease.js";
-
 export { normalizeQqPlaylist } from "./adapters/qq.js";
 export type {
   AppleApiRequestMetric,
@@ -59,15 +60,14 @@ export {
 } from "./apple/matcher.js";
 export {
   areApprovedArtistAliases,
-  characterNgramSimilarity,
   compareArtistCredits,
   identityCompactText,
+  levenshteinDistance,
+  levenshteinSimilarity,
   normalizeRecordingText,
   parseRecordingMetadata,
   recordingTextSimilarity,
-  shortNameSimilarity,
-  splitArtistCredits,
-  tokenSimilarity
+  splitArtistCredits
 } from "./apple/recordingMetadata.js";
 export { buildRecordingGroups } from "./apple/recordingResolution.js";
 export type {
@@ -89,6 +89,7 @@ export {
   unionAppleSearchCandidates
 } from "./apple/retrieval.js";
 export { albumSimilarity, durationSimilarity, scoreAppleRecordingEvidence, scoreAppleSong } from "./apple/scoring.js";
+export { stripAlbumAnnotations, stripTitleAnnotations, titleTextSimilarity } from "./apple/titleNormalization.js";
 export { compareVersionRelation } from "./apple/versionSemantics.js";
 export { interactiveLogin, loadCookies, saveCookies } from "./fetchers/auth.js";
 export { closeBrowser, fetchWithBrowser } from "./fetchers/browser.js";

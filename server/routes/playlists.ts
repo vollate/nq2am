@@ -3,6 +3,7 @@ import {
   fetchNeteasePlaylist,
   fetchQqPlaylist,
   normalizeNeteasePlaylist,
+  normalizePlaylistFile,
   normalizeQqPlaylist
 } from "../../src/index.js";
 import type { MusicProvider } from "../../src/types.js";
@@ -60,6 +61,23 @@ router.get("/playlists/:id", async (req, res) => {
     return;
   }
   res.json(playlist);
+});
+
+// Import a playlist from an uploaded portable file (nq2am-playlist JSON) instead
+// of fetching from a provider URL. Declared before "/playlists/:id/tracks…" so
+// the literal path wins; method-wise it never collides with the param route.
+router.post("/playlists/import", async (req, res) => {
+  try {
+    const playlist = normalizePlaylistFile(req.body);
+    if (playlist.tracks.length === 0) {
+      res.status(400).json({ error: "File contains no tracks with a usable name" });
+      return;
+    }
+    const key = await addPlaylist(playlist);
+    res.json({ key, playlist });
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
 });
 
 router.put("/playlists/:id/tracks/:idx", async (req, res) => {

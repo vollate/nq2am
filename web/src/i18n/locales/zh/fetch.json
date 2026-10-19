@@ -3,5 +3,10 @@
   "subtitle": "在下方粘贴 QQ 音乐或网易云音乐的歌单链接。",
   "placeholder": "https://y.qq.com/n/ryqq/playlist/...",
   "submit": "获取并规范化",
-  "submitting": "获取中…"
+  "submitting": "获取中…",
+  "or": "或",
+  "importFile": "从文件导入",
+  "importing": "导入中…",
+  "importHelp": "导入此前导出的 nq2am-playlist（.json）文件，而非从链接获取。",
+  "import.invalidJson": "该文件不是有效的 JSON。"
 }

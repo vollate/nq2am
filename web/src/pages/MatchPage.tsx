@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { api } from "../api";
+import { downloadJson, sanitizeFilename } from "../lib/download";
 import CreateApplePlaylistDialog from "../components/CreateApplePlaylistDialog";
 import ProviderBadge from "../components/ProviderBadge";
 import ReviewCard from "../components/ReviewCard";
@@ -28,6 +29,8 @@ import type {
   MatchReviewTab,
   MatchRetryScope,
   MusicProvider,
+  PortablePlaylistFile,
+  PortableTrack,
 } from "../types";
 
 const STATUS_STYLE: Record<AppleMatchStatus, string> = {
@@ -170,6 +173,8 @@ export default function MatchPage() {
     return base;
   }, [report]);
 
+  const unmatchedCount = stats.total - stats.matched;
+
   async function handleCreatePlaylist(draft: ApplePlaylistCreationDraft) {
     if (!report) return;
     setCreateMessage(null);
@@ -194,6 +199,28 @@ export default function MatchPage() {
     } finally {
       setCreating(false);
     }
+  }
+
+  function handleExportUnmatched() {
+    if (!report) return;
+    const unmatched = report.results.filter((r) => r.status !== "matched");
+    if (unmatched.length === 0) return;
+    const file: PortablePlaylistFile = {
+      format: "nq2am-playlist",
+      version: 1,
+      name: report.playlistName,
+      provider: report.provider,
+      tracks: unmatched.map<PortableTrack>((r) => ({
+        name: r.track.originalName,
+        artists: r.track.artists,
+        album: r.track.albumName,
+        durationMs: r.track.durationMs,
+      })),
+    };
+    downloadJson(
+      `${sanitizeFilename(report.playlistName ?? "playlist")}-unmatched.json`,
+      file,
+    );
   }
 
   async function handleRetry() {
@@ -485,6 +512,17 @@ export default function MatchPage() {
                 {retrying ? t("retry.running") : t("retry.action")}
               </button>
             </div>
+            {unmatchedCount > 0 && (
+              <button
+                type="button"
+                onClick={handleExportUnmatched}
+                disabled={retrying || creating}
+                className="rounded-md border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                title={t("exportUnmatchedTitle")}
+              >
+                {t("exportUnmatched", { count: unmatchedCount })}
+              </button>
+            )}
             {stats.matched > 0 && (
               <button
                 ref={createPlaylistButtonRef}

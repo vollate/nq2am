@@ -78,6 +78,8 @@
     "noMatch": "Marked no match",
     "show": "Show options"
   },
+  "exportUnmatched": "Export unmatched ({{count}})",
+  "exportUnmatchedTitle": "Download the tracks that did not match as a portable .json file",
   "createPlaylist": "Create Apple Music Playlist",
   "creating": "Creating…",
   "createdMessage": "Apple Music playlist created{{idSuffix}}.",

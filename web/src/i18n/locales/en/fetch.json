@@ -3,5 +3,10 @@
   "subtitle": "Paste a QQ Music or NetEase Cloud Music playlist URL below.",
   "placeholder": "https://y.qq.com/n/ryqq/playlist/...",
   "submit": "Fetch & Normalize",
-  "submitting": "Fetching…"
+  "submitting": "Fetching…",
+  "or": "or",
+  "importFile": "Import from file",
+  "importing": "Importing…",
+  "importHelp": "Import an exported nq2am-playlist (.json) file instead of fetching from a URL.",
+  "import.invalidJson": "The file is not valid JSON."
 }

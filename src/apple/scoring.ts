@@ -7,6 +7,7 @@ import {
   recordingTextSimilarity,
   roundEvidence
 } from "./recordingMetadata.js";
+import { stripAlbumAnnotations, titleTextSimilarity } from "./titleNormalization.js";
 import {
   candidateCarriesUnrequestedNamedVersion,
   compareVersionRelation,
@@ -33,7 +34,7 @@ export function compactText(value: string): string {
 }
 
 function albumComparableText(value: string): string {
-  return normalizeRecordingText(value)
+  return normalizeRecordingText(stripAlbumAnnotations(value))
     .replace(/\s*[-–—:]\s*(?:single|ep)\s*$/iu, "")
     .replace(/\s*[([{]\s*(?:deluxe|special|expanded|limited)(?:\s+edition)?\s*[)\]}]\s*$/iu, "")
     .trim();
@@ -160,8 +161,8 @@ export function scoreAppleRecordingEvidence(
   const artistScore = roundEvidence(
     artist.primaryPair * 0.65 + artist.candidateCoverage * 0.25 + artist.sourceCoverage * 0.1
   );
-  const baseTitleSimilarity = recordingTextSimilarity(parsedSource.baseTitle, parsedCandidate.baseTitle);
-  const fullTitleSimilarity = recordingTextSimilarity(track.originalName, song.attributes.name);
+  const baseTitleSimilarity = titleTextSimilarity(parsedSource.baseTitle, parsedCandidate.baseTitle);
+  const fullTitleSimilarity = titleTextSimilarity(track.originalName, song.attributes.name);
   const titleSimilarity = roundEvidence(Math.max(baseTitleSimilarity, fullTitleSimilarity * 0.94));
   const duration = prefs.preferDurationMatch
     ? durationSimilarity(track.durationMs, song.attributes.durationInMillis)

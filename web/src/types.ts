@@ -20,6 +20,24 @@ export type NormalizedPlaylist = {
   tracks: NormalizedTrack[];
 };
 
+/** A provider-agnostic track in a portable playlist file. */
+export type PortableTrack = {
+  name?: string;
+  artists?: string[];
+  album?: string;
+  durationMs?: number;
+};
+
+/** The `nq2am-playlist` JSON envelope exported/imported by the UI. */
+export type PortablePlaylistFile = {
+  format: "nq2am-playlist";
+  version: 1;
+  name?: string;
+  description?: string;
+  provider?: MusicProvider;
+  tracks: PortableTrack[];
+};
+
 export type AppleMatchStatus =
   | "not_implemented"
   | "matched"
