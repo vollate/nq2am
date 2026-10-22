@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import MatchingSettings from "../components/MatchingSettings";
+import AgentSettings from "../components/AgentSettings";
 import ProviderBadge from "../components/ProviderBadge";
 import type { MusicProvider } from "../types";
 
@@ -100,6 +101,7 @@ export default function SettingsPage() {
         })}
       </div>
 
+      <AgentSettings />
       <MatchingSettings />
     </div>
   );

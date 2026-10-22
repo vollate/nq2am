@@ -1,21 +1,19 @@
+import { randomUUID } from "node:crypto";
 import { type Response, Router, type Router as RouterType } from "express";
-import { matchAppleMusic, refreshAppleMatchReportCandidates, retryAppleMusicResults } from "../../src/index.js";
+import { matchAppleMusic, retryAppleMusicResults } from "../../src/index.js";
 import { getRetryIndices, type MatchRetryScope } from "../../src/matchFilters.js";
 import { getPreferences } from "../preferences.js";
 import {
   getMatchReport,
-  getPlaylist,
   getTask,
   setMatchProgress,
   setMatchReport,
   setTaskStatus,
   setTrackSelection
 } from "../state.js";
+import { acquireTask, releaseTask, taskLock } from "../taskLocks.js";
 
 const router: RouterType = Router();
-
-// Keys with an in-flight match, so a duplicate POST doesn't start a second run.
-const running = new Set<string>();
 const RETRY_SCOPES = new Set<MatchRetryScope>([
   "not_found",
   "score_rejected",
@@ -64,8 +62,12 @@ async function enqueueRetry(
     return;
   }
 
-  if (running.has(playlistId)) {
-    res.status(202).json({ status: "matching" });
+  const identity = JSON.stringify([scope, [...new Set(selectedIndices)].sort((a, b) => a - b)]);
+  const lock = taskLock(playlistId);
+  if (lock) {
+    res
+      .status(lock.operation === "retry" && lock.identity === identity ? 202 : 409)
+      .json({ status: "matching", error: "Task is busy" });
     return;
   }
 
@@ -75,7 +77,9 @@ async function enqueueRetry(
     return;
   }
 
-  running.add(playlistId);
+  const token = randomUUID();
+  acquireTask(playlistId, { operation: "retry", token, identity });
+  task.agentRun = undefined;
   setTaskStatus(playlistId, "matching");
   setMatchProgress(playlistId, 0, retryIndices.length);
 
@@ -89,7 +93,7 @@ async function enqueueRetry(
     } catch (error) {
       setTaskStatus(playlistId, "match_failed", (error as Error).message);
     } finally {
-      running.delete(playlistId);
+      releaseTask(playlistId, token);
     }
   })();
 
@@ -103,20 +107,24 @@ router.post("/match-apple", async (req, res) => {
     return;
   }
 
-  const playlist = await getPlaylist(playlistId);
+  const task = await getTask(playlistId);
+  const playlist = task?.playlist;
   if (!playlist) {
     res.status(404).json({ error: "Playlist not found" });
     return;
   }
 
-  if (running.has(playlistId)) {
-    res.status(202).json({ status: "matching" });
+  const lock = taskLock(playlistId);
+  if (lock) {
+    res.status(lock.operation === "match" ? 202 : 409).json({ status: "matching", error: "Task is busy" });
     return;
   }
 
   // Kick off the match in the background and return immediately, so the match
   // survives the client navigating away — progress lives in the task store.
-  running.add(playlistId);
+  const token = randomUUID();
+  acquireTask(playlistId, { operation: "match", token, identity: "match" });
+  if (task) task.agentRun = undefined;
   setTaskStatus(playlistId, "matching");
   setMatchProgress(playlistId, 0, playlist.tracks.length);
 
@@ -130,7 +138,7 @@ router.post("/match-apple", async (req, res) => {
     } catch (error) {
       setTaskStatus(playlistId, "match_failed", (error as Error).message);
     } finally {
-      running.delete(playlistId);
+      releaseTask(playlistId, token);
     }
   })();
 
@@ -144,18 +152,12 @@ router.get("/match-apple/:playlistId", async (req, res) => {
     return;
   }
 
-  let report = getMatchReport(req.params.playlistId);
-  if (report) {
-    const prefs = await getPreferences();
-    const refreshed = await refreshAppleMatchReportCandidates(report, prefs);
-    if (refreshed !== report) {
-      setMatchReport(req.params.playlistId, refreshed);
-      report = refreshed;
-    }
-  }
+  // Polling is read-only: never rescore or overwrite a running/Agent result.
+  const report = getMatchReport(req.params.playlistId);
 
   res.json({
     status: task.status,
+    ...(task.agentRun ? { agentRun: task.agentRun } : {}),
     progress: task.matchProgress,
     error: task.error,
     sourcePlaylist: {
@@ -193,6 +195,11 @@ router.put("/match-apple/:playlistId/tracks/:idx", async (req, res) => {
   const invalidAppleMusicId = appleMusicId !== null && (typeof appleMusicId !== "string" || appleMusicId.length === 0);
   if (Number.isNaN(idx) || invalidAppleMusicId) {
     res.status(400).json({ error: "idx and appleMusicId are required" });
+    return;
+  }
+  await getTask(req.params.playlistId);
+  if (taskLock(req.params.playlistId)) {
+    res.status(409).json({ error: "Task is busy" });
     return;
   }
   const result = setTrackSelection(req.params.playlistId, idx, appleMusicId);

@@ -6,6 +6,16 @@ type MatchFilterResult = {
 export type MatchRetryScope = "not_found" | "score_rejected" | "ambiguous" | "request_failed" | "selected" | "all";
 export type MatchReviewTab = "all" | "ambiguous" | "score_rejected" | "not_found" | "request_failed" | "matched";
 
+/** Shared quick scopes for ordinary Retry and Agent matching. */
+export const MATCH_SCOPES: readonly MatchRetryScope[] = [
+  "request_failed",
+  "not_found",
+  "score_rejected",
+  "ambiguous",
+  "selected",
+  "all"
+];
+
 export function getAmbiguousIndices(results: readonly MatchFilterResult[]): number[] {
   return results
     .map((r, i) => ({ r, i }))

@@ -685,7 +685,13 @@ export async function retryAppleMusicResults(
 function shouldRefreshExistingCandidates(
   result: AppleMatchResult
 ): result is AppleMatchResult & { candidates: AppleCandidate[] } {
-  if (result.selectionSource === "manual" || !result.candidates?.length) return false;
+  if (
+    result.selectionSource === "manual" ||
+    result.selectionSource === "agent" ||
+    result.agentAttempt ||
+    !result.candidates?.length
+  )
+    return false;
   return result.status === "ambiguous" || result.status === "not_found" || result.status === "score_rejected";
 }
 

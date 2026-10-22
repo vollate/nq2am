@@ -1,4 +1,7 @@
 import type {
+  AgentSettingsView,
+  AgentSettingsUpdate,
+  AgentConnectionTest,
   AppleMatchResult,
   ArtistAliasCatalogStatus,
   AuthStatus,
@@ -41,6 +44,11 @@ async function request<T>(
 }
 
 export const api = {
+  getAgentSettings: () => request<AgentSettingsView>("/api/agent/settings"),
+  putAgentSettings: (settings: AgentSettingsUpdate) => request<AgentSettingsView>("/api/agent/settings", { method: "PUT", body: JSON.stringify(settings) }),
+  testAgentSettings: (settings: AgentSettingsUpdate) => request<AgentConnectionTest>("/api/agent/settings/test", { method: "POST", body: JSON.stringify(settings) }),
+  startAgent: (id: string, indices: number[]) => request<{ runId: string; total: number }>(`/api/match-apple/${encodeURIComponent(id)}/agent`, { method: "POST", body: JSON.stringify({ indices }) }),
+  cancelAgent: (id: string, runId: string) => request<{ cancelled: boolean }>(`/api/match-apple/${encodeURIComponent(id)}/agent/cancel`, { method: "POST", body: JSON.stringify({ runId }) }),
   async getAuthStatus(): Promise<AuthStatus> {
     return request<AuthStatus>("/api/auth/status");
   },

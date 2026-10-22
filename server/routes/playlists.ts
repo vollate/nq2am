@@ -18,6 +18,8 @@ import {
   updateTrack
 } from "../state.js";
 
+import { TaskBusyError } from "../taskLocks.js";
+
 const router: RouterType = Router();
 
 function detectProvider(url: string): MusicProvider | undefined {
@@ -46,7 +48,7 @@ router.post("/normalize", async (req, res) => {
     const key = await addPlaylist(playlist);
     res.json({ key, playlist });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(error instanceof TaskBusyError ? 409 : 500).json({ error: (error as Error).message });
   }
 });
 
@@ -76,7 +78,7 @@ router.post("/playlists/import", async (req, res) => {
     const key = await addPlaylist(playlist);
     res.json({ key, playlist });
   } catch (error) {
-    res.status(400).json({ error: (error as Error).message });
+    res.status(error instanceof TaskBusyError ? 409 : 400).json({ error: (error as Error).message });
   }
 });
 
@@ -143,5 +145,20 @@ router.delete("/tasks/:id", async (req, res) => {
   }
   res.json({ success: true });
 });
+
+router.use(
+  (
+    error: unknown,
+    _req: import("express").Request,
+    res: import("express").Response,
+    next: import("express").NextFunction
+  ) => {
+    if (error instanceof TaskBusyError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+    next(error);
+  }
+);
 
 export default router;

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AppleApiSession, AppleSong } from "../src/apple/api.js";
+import { runWithArtistAliasSnapshot, snapshotFromCatalogFile } from "../src/apple/artistAliasIndex.js";
 import { matchAppleMusic, matchSingleTrack } from "../src/apple/matcher.js";
 import { areApprovedArtistAliases, parseRecordingMetadata } from "../src/apple/recordingMetadata.js";
 import { buildAppleQueryPlan } from "../src/apple/retrieval.js";
@@ -100,17 +101,26 @@ test("named version payloads stay distinct after stripping wrappers", () => {
 });
 
 test("an anniversary source does not auto-match a band arrangement", async () => {
-  const result = await matchSingleTrack(
-    {
-      ...track("弧ギツネの乱 (10th Anniversary ver.) [feat. 鏡音リン]", ["まらしぃ"]),
-      durationMs: 236_000
-    },
-    [
-      song("anniversary", "弧ギツネの乱 (10th Anniversary ver.) [feat. 鏡音リン]", "marasy", 236_000, "ISRC-ANN"),
-      song("band", "弧ギツネの乱 (まらおバンド ver.)", "marasy", 234_000, "ISRC-BAND")
-    ],
-    "us",
-    DEFAULT_MATCH_PREFERENCES
+  // This version-conflict test must not depend on a downloaded user catalog.
+  const aliases = snapshotFromCatalogFile({
+    version: 1,
+    refreshedAt: "fixture",
+    sources: [],
+    groups: [["まらしぃ", "marasy"]]
+  });
+  const result = await runWithArtistAliasSnapshot(aliases, () =>
+    matchSingleTrack(
+      {
+        ...track("弧ギツネの乱 (10th Anniversary ver.) [feat. 鏡音リン]", ["まらしぃ"]),
+        durationMs: 236_000
+      },
+      [
+        song("anniversary", "弧ギツネの乱 (10th Anniversary ver.) [feat. 鏡音リン]", "marasy", 236_000, "ISRC-ANN"),
+        song("band", "弧ギツネの乱 (まらおバンド ver.)", "marasy", 234_000, "ISRC-BAND")
+      ],
+      "us",
+      DEFAULT_MATCH_PREFERENCES
+    )
   );
   assert.equal(result.status, "matched");
   assert.equal(result.selectedId, "anniversary");

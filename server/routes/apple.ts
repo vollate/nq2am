@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { Router, type Router as RouterType } from "express";
 import { createAppleMusicPlaylistFromReport } from "../../src/apple/matcher.js";
 import { getPreferences } from "../preferences.js";
 import { getMatchReport, getPlaylist, setApplePlaylistId, setMatchReport, setTaskStatus } from "../state.js";
+import { acquireTask, releaseTask, taskLock } from "../taskLocks.js";
 
 type CreatePlaylistFromReport = typeof createAppleMusicPlaylistFromReport;
 
@@ -36,6 +38,11 @@ export function createAppleRouter(
       return;
     }
 
+    if (taskLock(playlistId)) {
+      res.status(409).json({ error: "Task is busy" });
+      return;
+    }
+
     const matchedCount = report.results.filter((result) => result.status === "matched").length;
     if (matchedCount === 0) {
       res.status(400).json({ error: "No matched tracks to add to playlist" });
@@ -47,6 +54,8 @@ export function createAppleRouter(
     const playlistDescription =
       typeof description === "string" ? description.trim() : (playlist?.description?.trim() ?? "");
 
+    const token = randomUUID();
+    acquireTask(playlistId, { operation: "create", token, identity: "create" });
     setTaskStatus(playlistId, "creating");
     try {
       const prefs = await getPreferences();
@@ -57,6 +66,8 @@ export function createAppleRouter(
     } catch (error) {
       setTaskStatus(playlistId, "create_failed", (error as Error).message);
       res.status(500).json({ error: (error as Error).message });
+    } finally {
+      releaseTask(playlistId, token);
     }
   });
 

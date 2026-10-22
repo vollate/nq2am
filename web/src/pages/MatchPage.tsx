@@ -6,6 +6,8 @@ import { downloadJson, sanitizeFilename } from "../lib/download";
 import CreateApplePlaylistDialog from "../components/CreateApplePlaylistDialog";
 import ProviderBadge from "../components/ProviderBadge";
 import ReviewCard from "../components/ReviewCard";
+import AgentAttempt from "../components/AgentAttempt";
+import MatchScopeAction from "../components/MatchScopeAction";
 import type { ApplePlaylistCreationDraft } from "../../../src/applePlaylistCreation";
 import {
   areReviewOptionsCollapsed,
@@ -17,6 +19,7 @@ import {
   getAmbiguousIndices,
   getNotFoundIndices,
   getRequestFailedIndices,
+  getRetryIndices,
   getScoreRejectedIndices,
   retryScopeForTab,
 } from "../../../src/matchFilters";
@@ -42,15 +45,6 @@ const STATUS_STYLE: Record<AppleMatchStatus, string> = {
   not_implemented: "bg-slate-600/30 text-slate-300 ring-slate-500/40",
 };
 
-const RETRY_SCOPES: MatchRetryScope[] = [
-  "request_failed",
-  "not_found",
-  "score_rejected",
-  "ambiguous",
-  "selected",
-  "all",
-];
-
 export default function MatchPage() {
   const { t } = useTranslation(["match", "common"]);
   const { id = "" } = useParams<{ id: string }>();
@@ -60,9 +54,11 @@ export default function MatchPage() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [agentConfigured, setAgentConfigured] = useState(false);
+  const [agentPending, setAgentPending] = useState(false);
   const [retryScope, setRetryScope] =
     useState<MatchRetryScope>("not_found");
-  const [retryScopeMenuOpen, setRetryScopeMenuOpen] = useState(false);
+  const [agentScope, setAgentScope] = useState<MatchRetryScope>("selected");
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -84,6 +80,28 @@ export default function MatchPage() {
 
   const report: AppleMatchReport | null = job?.report ?? null;
   const isMatching = job?.status === "matching";
+  const isAgentRunning = job?.agentRun?.status === "running";
+  const taskBusy = isMatching || job?.status === "creating" || retrying || creating || agentPending;
+
+  useEffect(() => {
+    let active = true;
+    api.getAgentSettings().then((settings) => { if (active) setAgentConfigured(settings.configured); }).catch(() => { if (active) setAgentConfigured(false); });
+    return () => { active = false; };
+  }, [id]);
+
+  async function handleAgent(cancel = false) {
+    const indices = cancel ? [] : getRetryIndices(report?.results ?? [], agentScope, [...retrySelectedIndices]);
+    if (cancel ? !job?.agentRun : !indices.length || !agentConfigured || taskBusy || selectingIdx !== null) return;
+    setAgentPending(true); setRetryError(null);
+    try {
+      if (cancel && job?.agentRun) await api.cancelAgent(id, job.agentRun.runId);
+      else await api.startAgent(id, indices);
+      setJob(await api.getMatchJob(id));
+      setPollNonce((n) => n + 1);
+      void refreshTasks();
+    } catch (error) { setRetryError(error instanceof Error ? error.message : String(error)); }
+    finally { setAgentPending(false); }
+  }
 
   useEffect(() => {
     setActiveKey(id);
@@ -114,13 +132,8 @@ export default function MatchPage() {
   }, []);
 
   useEffect(() => {
-    if (retrying || creating) {
-      setRetryScopeMenuOpen(false);
-    }
-  }, [creating, retrying]);
-
-  useEffect(() => {
     setRetryScope((scope) => retryScopeForTab(tab, scope));
+    setAgentScope((scope) => retryScopeForTab(tab, scope));
   }, [tab]);
 
   // Load the job, then keep polling while the match is still running so the page
@@ -226,7 +239,7 @@ export default function MatchPage() {
   async function handleRetry() {
     const retryIndices =
       retryScope === "selected" ? [...retrySelectedIndices] : [];
-    const retryTotal = retryCounts[retryScope];
+    const retryTotal = scopeCounts[retryScope];
     if (retryTotal === 0) return;
     setRetryError(null);
     setCreateMessage(null);
@@ -330,7 +343,7 @@ export default function MatchPage() {
     return getScoreRejectedIndices(report.results);
   }, [report]);
 
-  const retryCounts = useMemo(
+  const scopeCounts = useMemo(
     () => ({
       request_failed: requestFailedIndices.length,
       not_found: notFoundIndices.length,
@@ -353,7 +366,7 @@ export default function MatchPage() {
     return <div className="text-slate-400">{t("loading")}</div>;
   }
 
-  if (error) {
+  if (error && !report) {
     return (
       <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-200">
         {error}
@@ -361,7 +374,7 @@ export default function MatchPage() {
     );
   }
 
-  if (job?.status === "match_failed") {
+  if (job?.status === "match_failed" && !job.agentRun) {
     return (
       <div className="space-y-4">
         <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-200">
@@ -377,7 +390,7 @@ export default function MatchPage() {
     );
   }
 
-  if (isMatching) {
+  if (isMatching && !isAgentRunning) {
     const p = job?.progress;
     const pct = p && p.total > 0 ? Math.round((p.processed / p.total) * 100) : 0;
     return (
@@ -425,98 +438,34 @@ export default function MatchPage() {
             <ProviderBadge provider={report.provider} />
           </div>
           <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
-            <div className="flex rounded-md border border-slate-600 bg-slate-900 shadow-sm shadow-slate-950/30">
-              <div
-                className="relative"
-                onBlur={(e) => {
-                  const nextTarget = e.relatedTarget as Node | null;
-                  if (!e.currentTarget.contains(nextTarget)) {
-                    setRetryScopeMenuOpen(false);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setRetryScopeMenuOpen(false);
-                  }
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setRetryScopeMenuOpen((open) => !open)}
-                  disabled={retrying || creating}
-                  className="flex min-w-36 items-center justify-between gap-2 rounded-l-md bg-slate-900 px-3 py-2 text-sm font-medium text-slate-100 outline-none transition-colors hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-indigo-400/70 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={t("retry.scopeLabel")}
-                  aria-haspopup="listbox"
-                  aria-expanded={retryScopeMenuOpen}
-                  aria-controls="retry-scope-options"
-                >
-                  <span className="truncate">
-                    {t(`retry.scopes.${retryScope}`, {
-                      count: retryCounts[retryScope],
-                    })}
-                  </span>
-                  <span
-                    className={`text-xs text-slate-400 transition-transform ${
-                      retryScopeMenuOpen ? "rotate-180" : ""
-                    }`}
-                    aria-hidden="true"
-                  >
-                    ▾
-                  </span>
-                </button>
-                {retryScopeMenuOpen && (
-                  <div
-                    id="retry-scope-options"
-                    role="listbox"
-                    aria-label={t("retry.scopeLabel")}
-                    className="absolute left-0 z-30 mt-1 w-52 overflow-hidden rounded-md border border-slate-600 bg-slate-900 py-1 shadow-xl shadow-slate-950/50"
-                  >
-                    {RETRY_SCOPES.map((scope) => (
-                      <button
-                        key={scope}
-                        type="button"
-                        role="option"
-                        aria-selected={retryScope === scope}
-                        onClick={() => {
-                          setRetryScope(scope);
-                          setRetryScopeMenuOpen(false);
-                        }}
-                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
-                          retryScope === scope
-                            ? "bg-indigo-500/15 text-indigo-100"
-                            : "text-slate-200 hover:bg-slate-800 hover:text-white"
-                        }`}
-                      >
-                        <span className="truncate">
-                          {t(`retry.scopes.${scope}`, {
-                            count: retryCounts[scope],
-                          })}
-                        </span>
-                        {retryScope === scope && (
-                          <span className="text-indigo-300" aria-hidden="true">
-                            ✓
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleRetry}
-                disabled={retrying || creating || retryCounts[retryScope] === 0}
-                className="rounded-r-md border-l border-slate-600 bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-                title={t("retry.title")}
-              >
-                {retrying ? t("retry.running") : t("retry.action")}
-              </button>
-            </div>
+            <MatchScopeAction
+              scope={agentScope}
+              counts={scopeCounts}
+              onScopeChange={setAgentScope}
+              onAction={() => void handleAgent()}
+              scopeLabel={t("agent.scopeLabel")}
+              actionLabel={t("agent.start", { count: scopeCounts[agentScope] })}
+              title={t("agent.billing")}
+              disabled={taskBusy}
+              actionDisabled={!agentConfigured || selectingIdx !== null}
+              tone="agent"
+            />
+            <MatchScopeAction
+              scope={retryScope}
+              counts={scopeCounts}
+              onScopeChange={setRetryScope}
+              onAction={() => void handleRetry()}
+              scopeLabel={t("retry.scopeLabel")}
+              actionLabel={retrying ? t("retry.running") : t("retry.action")}
+              title={t("retry.title")}
+              disabled={taskBusy}
+              actionDisabled={selectingIdx !== null}
+            />
             {unmatchedCount > 0 && (
               <button
                 type="button"
                 onClick={handleExportUnmatched}
-                disabled={retrying || creating}
+                disabled={taskBusy}
                 className="rounded-md border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 title={t("exportUnmatchedTitle")}
               >
@@ -531,7 +480,7 @@ export default function MatchPage() {
                   setCreateMessage(null);
                   setCreateDialogOpen(true);
                 }}
-                disabled={creating}
+                disabled={taskBusy || selectingIdx !== null}
                 className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
               >
                 {creating ? t("creating") : t("createPlaylist")}
@@ -539,6 +488,22 @@ export default function MatchPage() {
             )}
           </div>
         </div>
+        {!agentConfigured && <Link to="/settings" className="text-sm text-violet-300">{t("agent.configure")}</Link>}
+        <p className="text-xs text-slate-400">{t("agent.billing")}</p>
+        {job?.agentRun && <section className="space-y-2 rounded-md border border-violet-500/30 bg-violet-500/10 p-3" aria-live="polite">
+          <div className="flex flex-wrap items-center gap-3">
+            <span>{t(`agent.states.${job.agentRun.status}`)} · {job.agentRun.processed}/{job.agentRun.total}</span>
+            {job.agentRun.currentIndex !== undefined && <span>{report.results[job.agentRun.currentIndex]?.track.originalName}</span>}
+            {isAgentRunning && <button type="button" disabled={agentPending} onClick={() => void handleAgent(true)} className="rounded bg-slate-700 px-3 py-1">{t("agent.cancel")}</button>}
+          </div>
+          <progress className="w-full" value={job.agentRun.processed} max={job.agentRun.total} />
+          <p className="text-sm">{t("agent.summary", { matched: job.agentRun.matched, noMatch: job.agentRun.noMatch, uncertain: job.agentRun.uncertain, failed: job.agentRun.failed })}</p>
+          {job.agentRun.error && <p className="text-sm text-red-200">{job.agentRun.error}</p>}
+          <div className="flex flex-wrap gap-2 text-xs text-slate-300"><span>{t("agent.logs")}</span><code className="select-all break-all">{job.agentRun.logDir}</code>
+            <button type="button" onClick={() => void navigator.clipboard.writeText(job.agentRun!.logDir).catch(() => setRetryError(t("agent.copyFailed")))}>{t("agent.copy")}</button>
+          </div>
+        </section>}
+        {error && <p className="text-sm text-red-200">{error}</p>}
         {retryError && (
           <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
             {retryError}
@@ -620,6 +585,7 @@ export default function MatchPage() {
         </div>
       </div>
 
+      <fieldset disabled={taskBusy}>
       {tab === "ambiguous" ? (
         ambiguousResultIndices.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-700 bg-slate-800/50 px-6 py-10 text-center text-slate-400">
@@ -810,12 +776,14 @@ export default function MatchPage() {
                     </td>
                     <td className="px-3 py-2 text-sm text-slate-400">
                       {r.appleMusicId ?? r.reason ?? "—"}
+                      <AgentAttempt result={r} />
                     </td>
                     <td className="px-3 py-2 text-right">
                       {(r.candidates?.length ?? 0) > 0 && (
                         <button
                           type="button"
                           onClick={() => setReselectIdx(i)}
+                          disabled={taskBusy}
                           className="rounded-md border border-slate-600 bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600"
                         >
                           {t("reselect")}
@@ -866,6 +834,7 @@ export default function MatchPage() {
         </div>
       )}
 
+      </fieldset>
       {createDialogOpen && (
         <CreateApplePlaylistDialog
           source={{
@@ -952,6 +921,7 @@ function NotFoundCard({
           <div className="mt-2 text-xs text-slate-500">
             {r.reason ?? t("notFoundNoReason")}
           </div>
+          <AgentAttempt result={r} />
         </div>
       </div>
     </div>
@@ -1019,6 +989,7 @@ function RequestFailedCard({
           <div className="mt-2 break-words text-xs text-orange-200/80">
             {r.reason ?? t("requestFailedNoReason")}
           </div>
+          <AgentAttempt result={r} />
         </div>
       </div>
     </div>

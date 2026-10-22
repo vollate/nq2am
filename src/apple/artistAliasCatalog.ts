@@ -151,7 +151,7 @@ export function getArtistAliasCatalogStatus(): ArtistAliasCatalogStatus {
   };
 }
 
-export async function loadArtistAliasCatalogSnapshot(): Promise<ArtistAliasSnapshot> {
+export async function loadArtistAliasCatalogSnapshot(includeReverse = false): Promise<ArtistAliasSnapshot> {
   try {
     const raw = await readFile(artistAliasCatalogPath(), "utf8");
     const file = JSON.parse(raw) as ArtistAliasCatalogFile;
@@ -160,7 +160,7 @@ export async function loadArtistAliasCatalogSnapshot(): Promise<ArtistAliasSnaps
       statusSnapshot = { status: "idle", sources: [], groupCount: 0 };
       return emptyArtistAliasSnapshot();
     }
-    const snapshot = snapshotFromCatalogFile(file);
+    const snapshot = snapshotFromCatalogFile(file, includeReverse);
     setLoadedArtistAliasSnapshot(snapshot);
     statusSnapshot = {
       status: "idle",

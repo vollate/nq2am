@@ -22,6 +22,9 @@ export type ArtistAliasSnapshot = {
   sources: readonly ArtistAliasCatalogSource[];
   /** Compact identity key → group id. Ambiguous keys are omitted. */
   groupByKey: ReadonlyMap<string, number>;
+  /** Reverse lookup retains homonyms without treating them as identity evidence. */
+  groupsByKey?: ReadonlyMap<string, readonly number[]>;
+  namesByGroup?: ReadonlyMap<number, readonly string[]>;
 };
 
 const emptySnapshot: ArtistAliasSnapshot = { sources: [], groupByKey: new Map() };
@@ -49,7 +52,7 @@ export function runWithArtistAliasSnapshot<T>(snapshot: ArtistAliasSnapshot, fn:
   return aliasStore.run(snapshot, fn);
 }
 
-export function snapshotFromCatalogFile(file: ArtistAliasCatalogFile): ArtistAliasSnapshot {
+export function snapshotFromCatalogFile(file: ArtistAliasCatalogFile, includeReverse = false): ArtistAliasSnapshot {
   const groups: string[][] = [];
   for (const names of file.groups) {
     const keys = uniqueKeys(names);
@@ -89,10 +92,27 @@ export function snapshotFromCatalogFile(file: ArtistAliasCatalogFile): ArtistAli
     if (indices.every((index) => entities.find(index) === entity)) groupByKey.set(key, entity);
   }
 
+  // Ordinary matching only needs identity lookups; build the larger reverse index for Agent batches.
+  if (!includeReverse) return { refreshedAt: file.refreshedAt, sources: file.sources, groupByKey };
+
+  const namesByGroup = new Map<number, string[]>();
+  const reverse = new Map<string, number[]>();
+  for (const [key, indices] of groupsByKey) {
+    const ids = [...new Set(indices.map((index) => entities.find(index)))].sort((a, b) => a - b);
+    reverse.set(key, ids);
+    for (const id of ids) {
+      const names = namesByGroup.get(id) ?? [];
+      names.push(key);
+      namesByGroup.set(id, names);
+    }
+  }
+  for (const names of namesByGroup.values()) names.sort();
   return {
     refreshedAt: file.refreshedAt,
     sources: file.sources,
-    groupByKey
+    groupByKey,
+    groupsByKey: reverse,
+    namesByGroup
   };
 }
 

@@ -1,3 +1,5 @@
+import type { AgentAttempt } from "./agent/types.js";
+
 export type MusicProvider = "qq" | "netease" | "apple";
 
 export type NormalizedSource = {
@@ -266,7 +268,8 @@ export type AppleMatchResult = {
   candidates?: AppleCandidate[];
   /** The chosen candidate id (mirrors appleMusicId for the selected one). */
   selectedId?: string;
-  selectionSource?: "auto" | "manual";
+  selectionSource?: "auto" | "manual" | "agent";
+  agentAttempt?: AgentAttempt;
   appleMusicId?: string;
   appleMusicUrl?: string;
   reason?: string;

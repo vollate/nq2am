@@ -2,6 +2,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
+import { localAgentOnly } from "./agent/security.js";
+import agentRouter from "./routes/agent.js";
 import appleRouter from "./routes/apple.js";
 import artistAliasCatalogRouter from "./routes/artistAliasCatalog.js";
 import authRouter from "./routes/auth.js";
@@ -13,12 +15,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export async function startServer(port: number): Promise<void> {
   const app = express();
+  // Guard before permissive legacy CORS, including preflight requests.
+  app.use(["/api/agent", "/api/match-apple/:playlistId/agent"], localAgentOnly);
   app.use(cors());
   app.use(express.json());
 
   app.use("/api/auth", authRouter);
   app.use("/api/apple", appleRouter);
   app.use("/api", playlistsRouter);
+  app.use("/api", agentRouter);
   app.use("/api", matchRouter);
   app.use("/api", preferencesRouter);
   app.use("/api", artistAliasCatalogRouter);

@@ -1,34 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { type Cookie, chromium } from "playwright";
+import { getDataDir } from "../dataDir.js";
 import type { MusicProvider } from "../types.js";
+
+export { getDataDir } from "../dataDir.js";
 
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const POLL_INTERVAL_MS = 1_000;
-
-/**
- * Return the platform-appropriate data directory for nq2am:
- * - macOS: ~/Library/Application Support/nq2am
- * - Windows: %APPDATA%/nq2am
- * - Linux/others: $XDG_DATA_HOME/nq2am (defaults to ~/.local/share/nq2am)
- */
-export function getDataDir(): string {
-  if (process.env.NQ2AM_DATA_DIR) {
-    return process.env.NQ2AM_DATA_DIR;
-  }
-
-  const os = platform();
-  if (os === "darwin") {
-    return join(homedir(), "Library", "Application Support", "nq2am");
-  }
-  if (os === "win32") {
-    return join(process.env.APPDATA ?? join(homedir(), "AppData", "Roaming"), "nq2am");
-  }
-  // Linux / FreeBSD / other Unix-like — follow XDG Base Directory spec
-  const xdgData = process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
-  return join(xdgData, "nq2am");
-}
 
 const DATA_DIR = getDataDir();
 

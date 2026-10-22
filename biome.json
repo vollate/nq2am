@@ -1,7 +1,16 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
   "files": {
-    "includes": ["src/**", "server/**", "tests/**", "scripts/**", "!src/apple/hanFoldTable.ts"]
+    "includes": [
+      "src/**",
+      "server/**",
+      "tests/**",
+      "scripts/**",
+      "studio/src/**",
+      "studio/tests/**",
+      "studio/scripts/**",
+      "!src/apple/hanFoldTable.ts"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

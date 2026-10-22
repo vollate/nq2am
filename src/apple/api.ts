@@ -1,4 +1,5 @@
 import { performance } from "node:perf_hooks";
+import { setTimeout as abortableDelay } from "node:timers/promises";
 import { type APIRequestContext, type Browser, type BrowserContext, type Cookie, chromium, request } from "playwright";
 import { loadCookies, saveCookies } from "../fetchers/auth.js";
 import type { AppleRequestOperation } from "../types.js";
@@ -57,6 +58,7 @@ export type AppleApiSessionStats = {
 };
 
 export type AppleApiSessionOptions = {
+  signal?: AbortSignal;
   requestTimeoutMs?: number;
   minRequestIntervalMs?: number;
   randomPauseEnabled?: boolean;
@@ -68,8 +70,8 @@ export type AppleApiSessionOptions = {
 };
 
 export type AppleApiSession = {
-  search(term: string, storefront: string): Promise<AppleSong[]>;
-  songsByIsrc(isrc: string, storefront: string): Promise<AppleSong[]>;
+  search(term: string, storefront: string, signal?: AbortSignal): Promise<AppleSong[]>;
+  songsByIsrc(isrc: string, storefront: string, signal?: AbortSignal): Promise<AppleSong[]>;
   getStorefront(): Promise<string>;
   createPlaylist(name: string, description: string, trackIds: string[]): Promise<string>;
   getStats(): AppleApiSessionStats;
@@ -317,6 +319,10 @@ class AppleRequestContextClosedError extends Error {
 
 export class PlaywrightAppleApiSession implements AppleApiSession {
   private readonly scheduler: RequestStartScheduler;
+  private readonly signal?: AbortSignal;
+  private readonly onAbort = () => {
+    void this.requestContext.dispose().catch(() => {});
+  };
   private readonly requestTimeoutMs: number;
   private readonly maxAttempts: number;
   private readonly baseRetryDelayMs: number;
@@ -339,25 +345,43 @@ export class PlaywrightAppleApiSession implements AppleApiSession {
     private readonly requestContextFactory: AppleRequestContextFactory = createIsolatedRequestContext,
     private readonly cookieSaver: AppleCookieSaver = (updatedCookies) => saveCookies("apple", updatedCookies)
   ) {
+    this.signal = options.signal;
+    this.signal?.addEventListener("abort", this.onAbort, { once: true });
+    if (this.signal?.aborted) this.onAbort();
     this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     this.maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
     this.baseRetryDelayMs = options.baseRetryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
     this.onRequest = options.onRequest;
     this.scheduler = new RequestStartScheduler(options.minRequestIntervalMs ?? DEFAULT_REQUEST_INTERVAL_MS, {
+      sleep: options.signal
+        ? async (ms) => {
+            await abortableDelay(ms, undefined, { signal: options.signal });
+          }
+        : undefined,
       randomPauseMinMs: options.randomPauseEnabled ? options.randomPauseMinMs : 0,
       randomPauseMaxMs: options.randomPauseEnabled ? options.randomPauseMaxMs : 0
     });
   }
 
-  async search(term: string, storefront: string): Promise<AppleSong[]> {
+  async search(term: string, storefront: string, signal?: AbortSignal): Promise<AppleSong[]> {
     const params = new URLSearchParams({ types: "songs", term, limit: "15" });
-    const result = await this.requestJson<SearchResponse>("search", `/v1/catalog/${storefront}/search?${params}`);
+    const result = await this.requestJson<SearchResponse>(
+      "search",
+      `/v1/catalog/${storefront}/search?${params}`,
+      undefined,
+      signal
+    );
     return result.results?.songs?.data ?? [];
   }
 
-  async songsByIsrc(isrc: string, storefront: string): Promise<AppleSong[]> {
+  async songsByIsrc(isrc: string, storefront: string, signal?: AbortSignal): Promise<AppleSong[]> {
     const params = new URLSearchParams({ "filter[isrc]": isrc, limit: "10" });
-    const result = await this.requestJson<{ data?: AppleSong[] }>("isrc", `/v1/catalog/${storefront}/songs?${params}`);
+    const result = await this.requestJson<{ data?: AppleSong[] }>(
+      "isrc",
+      `/v1/catalog/${storefront}/songs?${params}`,
+      undefined,
+      signal
+    );
     return result.data ?? [];
   }
 
@@ -405,6 +429,7 @@ export class PlaywrightAppleApiSession implements AppleApiSession {
     await this.waitForRequestsToFinish();
     await this.recoveryPromise?.catch(() => {});
     this.closed = true;
+    this.signal?.removeEventListener("abort", this.onAbort);
     const context = this.requestContext;
     try {
       const state = await context.storageState().catch(() => undefined);
@@ -420,8 +445,14 @@ export class PlaywrightAppleApiSession implements AppleApiSession {
   private async requestJson<T>(
     operation: AppleApiOperation,
     path: string,
-    init?: { method?: string; body?: string }
+    init?: { method?: string; body?: string },
+    operationSignal?: AbortSignal
   ): Promise<T> {
+    const signal =
+      this.signal && operationSignal
+        ? AbortSignal.any([this.signal, operationSignal])
+        : (this.signal ?? operationSignal);
+    signal?.throwIfAborted();
     if (this.closing || this.closed) {
       throw new Error("Apple Music API session is closed");
     }
@@ -432,6 +463,7 @@ export class PlaywrightAppleApiSession implements AppleApiSession {
       try {
         return await runWithRetry(
           async (attempt) => {
+            signal?.throwIfAborted();
             attempts = attempt;
             if (attempt > 1) {
               this.retryCount += 1;
@@ -443,6 +475,7 @@ export class PlaywrightAppleApiSession implements AppleApiSession {
             const requestContext = this.requestContext;
             try {
               const value = await this.scheduler.schedule(async () => {
+                signal?.throwIfAborted();
                 const response = await requestContext.fetch(path, {
                   method: init?.method ?? "GET",
                   headers: {
@@ -496,8 +529,9 @@ export class PlaywrightAppleApiSession implements AppleApiSession {
           },
           {
             maxAttempts: this.maxAttempts,
-            shouldRetry: (error, attempt) => isRetryable(error, attempt, operation),
+            shouldRetry: (error, attempt) => !signal?.aborted && isRetryable(error, attempt, operation),
             beforeRetry: async (error, attempt) => {
+              signal?.throwIfAborted();
               if (error instanceof AppleRequestContextClosedError) {
                 await this.recoverRequestContext(error.requestContext);
                 return;
@@ -513,7 +547,7 @@ export class PlaywrightAppleApiSession implements AppleApiSession {
 
               const retryAfterMs = error instanceof AppleApiError ? error.retryAfterMs : undefined;
               const backoffMs = retryAfterMs ?? this.baseRetryDelayMs * 2 ** (attempt - 1);
-              this.scheduler.deferNextStart(backoffMs);
+              this.scheduler.deferNextStart(this.signal ? Math.min(backoffMs, 10000) : backoffMs);
             }
           }
         );
@@ -589,6 +623,7 @@ export class PlaywrightAppleApiSession implements AppleApiSession {
 }
 
 export async function createAppleApiSession(options: AppleApiSessionOptions = {}): Promise<AppleApiSession> {
+  options.signal?.throwIfAborted();
   const cookies = await loadCookies("apple");
   if (!cookies || cookies.length === 0) {
     throw new Error("Not logged in to Apple Music. Please log in from Settings.");
@@ -600,6 +635,7 @@ export async function createAppleApiSession(options: AppleApiSessionOptions = {}
   }
 
   const developerToken = await getDeveloperToken(cookies);
+  options.signal?.throwIfAborted();
   const requestContext = await createIsolatedRequestContext(cookies);
   return new PlaywrightAppleApiSession(requestContext, cookies, mediaUserToken, developerToken, options);
 }

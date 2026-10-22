@@ -1,5 +1,22 @@
 {
   "title": "Settings",
+  "agent": {
+    "title": "Agent / LLM API",
+    "warning": "Local single-user use only. The key is stored as local plaintext in the server data directory's agent-settings.json (0600 permissions), never returned or stored in browser storage. Requires OpenAI-compatible Chat Completions tool calling.",
+    "baseUrl": "Base URL (HTTPS or loopback HTTP)",
+    "model": "Model (required, no default)",
+    "apiKey": "API Key",
+    "keySaved": "Key saved; leave blank to keep",
+    "keyOptional": "Optional for keyless local services",
+    "save": "Save",
+    "clear": "Clear saved key",
+    "test": "Test tool calling",
+    "billing": "Tests use the current form without saving (a blank key uses the saved key). Tests and manual Agent matching may incur charges. Ordinary matching never calls the LLM.",
+    "saved": "Agent settings saved",
+    "cleared": "Saved key cleared",
+    "testOk": "Tool calling verified ({{ms}} ms)",
+    "testFailed": "Tool calling failed: {{error}}"
+  },
   "subtitle": "Connect your music accounts to fetch private playlists and create Apple Music playlists.",
   "providers": {
     "qq": {

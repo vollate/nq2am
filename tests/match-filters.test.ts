@@ -6,6 +6,7 @@ import {
   getRequestFailedIndices,
   getRetryIndices,
   getScoreRejectedIndices,
+  MATCH_SCOPES,
   retryScopeForTab
 } from "../src/matchFilters.js";
 
@@ -72,6 +73,16 @@ test("retry scopes select the expected result indices", () => {
   assert.deepEqual(getRetryIndices(results, "request_failed"), [4]);
   assert.deepEqual(getRetryIndices(results, "all"), [0, 1, 2, 3, 4, 5]);
   assert.deepEqual(getRetryIndices(results, "selected", [4, 2, 4, 99, -1]), [4, 2]);
+});
+
+test("Agent and Retry quick scopes include the same groups without falling back from an empty scope", () => {
+  assert.deepEqual(MATCH_SCOPES, ["request_failed", "not_found", "score_rejected", "ambiguous", "selected", "all"]);
+  const results = [{ status: "matched" }, { status: "not_found" }] as const;
+  assert.deepEqual(getRetryIndices(results, "ambiguous", [0]), []);
+  assert.deepEqual(getRetryIndices(results, "not_found", [0]), [1]);
+  assert.deepEqual(getRetryIndices(results, "selected", []), []);
+  assert.deepEqual(getRetryIndices(results, "selected", [1, 1, -1, 2]), [1]);
+  for (const scope of MATCH_SCOPES) assert.deepEqual(getRetryIndices([], scope, [0]), []);
 });
 
 test("retry scope follows retryable review tabs", () => {

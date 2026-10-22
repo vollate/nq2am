@@ -1,3 +1,6 @@
+import type { AgentAttempt, AgentRun } from "../../src/agent/types";
+export type { AgentSettingsView, AgentSettingsUpdate, AgentRun, AgentAttempt, AgentConnectionTest } from "../../src/agent/types";
+
 export type MusicProvider = "qq" | "netease" | "apple";
 
 export type NormalizedTrack = {
@@ -200,7 +203,8 @@ export type AppleMatchResult = {
   status: AppleMatchStatus;
   candidates?: AppleCandidate[];
   selectedId?: string;
-  selectionSource?: "auto" | "manual";
+  selectionSource?: "auto" | "manual" | "agent";
+  agentAttempt?: AgentAttempt;
   appleMusicId?: string;
   appleMusicUrl?: string;
   reason?: string;
@@ -306,6 +310,7 @@ export type TaskSummary = {
 
 export type MatchJob = {
   status: TaskStatus;
+  agentRun?: AgentRun;
   progress?: { processed: number; total: number };
   error?: string;
   sourcePlaylist: {

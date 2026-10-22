@@ -1,5 +1,22 @@
 {
   "title": "设置",
+  "agent": {
+    "title": "Agent / LLM API",
+    "warning": "仅支持单机使用。密钥以本地明文保存在服务端数据目录的 agent-settings.json（权限 0600），不会回传或写入浏览器存储。支持 OpenAI 兼容 Chat Completions 工具调用。",
+    "baseUrl": "Base URL（HTTPS 或本机 HTTP）",
+    "model": "模型（必填，不设默认值）",
+    "apiKey": "API Key",
+    "keySaved": "已保存密钥；留空保留",
+    "keyOptional": "可留空，支持无密钥的本机服务",
+    "save": "保存",
+    "clear": "清除已保存密钥",
+    "test": "测试工具调用连接",
+    "billing": "测试使用当前表单（留空密钥使用已保存值），不保存设置。测试和手动 Agent 匹配都可能计费；普通匹配不调用 LLM。",
+    "saved": "Agent 设置已保存",
+    "cleared": "已保存密钥已清除",
+    "testOk": "工具调用验证通过（{{ms}} ms）",
+    "testFailed": "工具调用验证失败：{{error}}"
+  },
   "subtitle": "连接你的音乐账号，以获取私有歌单并创建 Apple Music 歌单。",
   "providers": {
     "qq": {

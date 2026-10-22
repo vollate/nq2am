@@ -1,5 +1,23 @@
 {
   "title": "匹配报告",
+  "agent": {
+    "start": "Agent 匹配（{{count}}）",
+    "scopeLabel": "Agent 匹配范围",
+    "source": "Agent",
+    "billing": "Agent 按所选范围处理歌曲，可能产生 LLM 费用。选择「已选择」可仅处理勾选歌曲。仅验证通过的成功匹配会替换原结果；运行日志包含歌曲及模型上下文。",
+    "configure": "请先在设置页配置 Agent 模型",
+    "cancel": "取消 Agent",
+    "summary": "成功 {{matched}} · 无匹配 {{noMatch}} · 不确定 {{uncertain}} · 失败 {{failed}}",
+    "logs": "本地日志（不自动清理）：",
+    "copy": "复制路径",
+    "copyFailed": "复制失败，请手动选择路径复制",
+    "evidence": "证据引用",
+    "states": {
+      "pending": "Agent 等待中", "running": "Agent 运行中", "completed": "Agent 已完成",
+      "failed": "Agent 失败", "cancelled": "Agent 已取消", "interrupted": "Agent 因重启中断",
+      "matched": "Agent 已验证匹配", "no_match": "Agent 无匹配（保留原结果）", "uncertain": "Agent 不确定（保留原结果）"
+    }
+  },
   "loading": "正在加载匹配报告…",
   "matchFailed": "匹配失败：{{error}}",
   "unknownError": "未知错误",
@@ -46,7 +64,7 @@
   "noMatch": "标记为不匹配",
   "noMatchSelected": "✓ 已标记不匹配",
   "table": {
-    "retry": "重试",
+    "retry": "选择",
     "index": "#",
     "name": "名称",
     "artists": "艺术家",
@@ -62,7 +80,7 @@
     "running": "正在重试…",
     "title": "按所选范围重新匹配",
     "scopeLabel": "重试范围",
-    "selectTrack": "选择 {{name}} 用于重试",
+    "selectTrack": "选择 {{name}} 用于重试或 Agent 匹配",
     "scopes": {
       "request_failed": "请求失败（{{count}}）",
       "not_found": "未找到（{{count}}）",

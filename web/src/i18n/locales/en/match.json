@@ -1,5 +1,23 @@
 {
   "title": "Match report",
+  "agent": {
+    "start": "Agent match ({{count}})",
+    "scopeLabel": "Agent match scope",
+    "source": "Agent",
+    "billing": "Agent processes the chosen scope and may incur LLM charges. Choose Selected to use checked tracks only. Only verified matches replace results. Local logs contain song data and model context.",
+    "configure": "Configure an Agent model in Settings first",
+    "cancel": "Cancel Agent",
+    "summary": "Matched {{matched}} · No match {{noMatch}} · Uncertain {{uncertain}} · Failed {{failed}}",
+    "logs": "Local logs (not automatically deleted):",
+    "copy": "Copy path",
+    "copyFailed": "Copy failed; select and copy the path manually",
+    "evidence": "Evidence references",
+    "states": {
+      "pending": "Agent queued", "running": "Agent running", "completed": "Agent completed",
+      "failed": "Agent failed", "cancelled": "Agent cancelled", "interrupted": "Agent interrupted by restart",
+      "matched": "Agent verified match", "no_match": "Agent found no match (original kept)", "uncertain": "Agent uncertain (original kept)"
+    }
+  },
   "loading": "Loading match report…",
   "matchFailed": "Match failed: {{error}}",
   "unknownError": "unknown error",
@@ -46,7 +64,7 @@
   "noMatch": "Mark as no match",
   "noMatchSelected": "✓ Marked no match",
   "table": {
-    "retry": "Retry",
+    "retry": "Select",
     "index": "#",
     "name": "Name",
     "artists": "Artists",
@@ -62,7 +80,7 @@
     "running": "Retrying…",
     "title": "Re-run matching for the selected scope",
     "scopeLabel": "Retry scope",
-    "selectTrack": "Select {{name}} for retry",
+    "selectTrack": "Select {{name}} for Retry or Agent matching",
     "scopes": {
       "request_failed": "Request failed ({{count}})",
       "not_found": "Not found ({{count}})",

@@ -1,8 +1,12 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { AgentRun } from "../src/agent/types.js";
 import { normalizeLegacyAppleRequestFailures } from "../src/apple/requestFailure.js";
 import { getDataDir } from "../src/fetchers/auth.js";
 import type { AppleMatchReport, MusicProvider, NormalizedPlaylist, NormalizedTrack } from "../src/types.js";
+import { interruptAgentTask } from "./agent/recovery.js";
+import { atomicJson } from "./agent/storage.js";
+import { assertTaskIdle } from "./taskLocks.js";
 
 /**
  * A Task is the unit of resumable work in nq2am: one imported playlist as it
@@ -21,6 +25,7 @@ export type Task = {
   status: TaskStatus;
   playlist: NormalizedPlaylist;
   matchReport?: AppleMatchReport;
+  agentRun?: AgentRun;
   /** Live progress while status === "matching". */
   matchProgress?: { processed: number; total: number };
   applePlaylistId?: string;
@@ -50,7 +55,13 @@ let saveChain: Promise<void> = Promise.resolve();
 
 async function ensureLoaded(): Promise<void> {
   if (loaded) return;
-  loaded = true;
+  if (loadPromise) return loadPromise;
+  loadPromise = loadTasks();
+  return loadPromise;
+}
+
+let loadPromise: Promise<void> | undefined;
+async function loadTasks(): Promise<void> {
   try {
     const raw = await readFile(STORE_PATH, "utf8");
     const arr = JSON.parse(raw) as Task[];
@@ -58,9 +69,13 @@ async function ensureLoaded(): Promise<void> {
     for (const t of arr) {
       // A match interrupted by a restart is no longer running — mark it failed
       // so the UI offers a clean retry rather than spinning forever.
-      if (t.status === "matching") {
+      if (t.agentRun?.status === "running") {
+        await interruptAgentTask(t);
+        migrated = true;
+      } else if (t.status === "matching") {
         t.status = "match_failed";
         t.error = "Match interrupted by server restart. Please retry.";
+        migrated = true;
       }
       if (t.status === "creating") {
         t.status = "match_failed";
@@ -75,23 +90,23 @@ async function ensureLoaded(): Promise<void> {
       tasks.set(t.key, t);
     }
     if (migrated) {
-      persist();
+      await persistTasks();
     }
-  } catch {
-    // No store yet — start empty.
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
+  loaded = true;
 }
 
+/** Serialized atomic writes. Agent callers await this and stop on any failure. */
+export function persistTasks(): Promise<void> {
+  const snapshot = structuredClone([...tasks.values()]);
+  const write = saveChain.then(() => atomicJson(STORE_PATH, snapshot));
+  saveChain = write.catch(() => {});
+  return write;
+}
 function persist(): void {
-  // Serialize writes so concurrent updates don't clobber the file.
-  saveChain = saveChain.then(async () => {
-    try {
-      await mkdir(getDataDir(), { recursive: true });
-      await writeFile(STORE_PATH, JSON.stringify([...tasks.values()], null, 2), "utf8");
-    } catch {
-      // Persistence is best-effort; in-memory state remains authoritative.
-    }
-  });
+  void persistTasks().catch(() => {});
 }
 
 function makeKey(playlist: NormalizedPlaylist): string {
@@ -124,6 +139,7 @@ export function toSummary(task: Task): TaskSummary {
 export async function addPlaylist(playlist: NormalizedPlaylist): Promise<string> {
   await ensureLoaded();
   const key = makeKey(playlist);
+  assertTaskIdle(key);
   const now = Date.now();
   const existing = tasks.get(key);
   tasks.set(key, {
@@ -164,6 +180,7 @@ export async function getAllTasks(): Promise<TaskSummary[]> {
  */
 export async function deleteTasks(keys: string[]): Promise<number> {
   await ensureLoaded();
+  keys.forEach(assertTaskIdle);
   let removed = 0;
   for (const key of keys) {
     if (tasks.delete(key)) {
@@ -184,6 +201,7 @@ export async function deleteTasks(keys: string[]): Promise<number> {
 export async function clearCompletedTasks(): Promise<string[]> {
   await ensureLoaded();
   const removed: string[] = [];
+  for (const [key, task] of tasks) if (task.status === "created") assertTaskIdle(key);
   for (const [key, task] of tasks) {
     if (task.status === "created") {
       tasks.delete(key);
@@ -202,6 +220,7 @@ export async function updateTrack(
   data: Partial<NormalizedTrack>
 ): Promise<NormalizedTrack | undefined> {
   await ensureLoaded();
+  assertTaskIdle(key);
   const task = tasks.get(key);
   if (!task || idx < 0 || idx >= task.playlist.tracks.length) {
     return undefined;
@@ -214,6 +233,7 @@ export async function updateTrack(
 
 export async function deleteTracks(key: string, indices: number[]): Promise<boolean> {
   await ensureLoaded();
+  assertTaskIdle(key);
   const task = tasks.get(key);
   if (!task) {
     return false;
@@ -270,6 +290,7 @@ export function getMatchReport(key: string): AppleMatchReport | undefined {
  * task/track/candidate is absent.
  */
 export function setTrackSelection(key: string, idx: number, appleMusicId: string | null) {
+  assertTaskIdle(key);
   const task = tasks.get(key);
   const result = task?.matchReport?.results[idx];
   if (!task || !result) return undefined;
@@ -294,7 +315,7 @@ export function setTrackSelection(key: string, idx: number, appleMusicId: string
   result.selectedId = candidate.id;
   result.selectionSource = "manual";
   result.status = "matched";
-  result.appleMusicId = candidate.id;
+  result.appleMusicId = candidate.addableId ?? candidate.id;
   result.appleMusicUrl = candidate.url;
   result.reason = undefined;
   delete result.requestFailure;

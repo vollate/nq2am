@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { fmtDuration } from "../lib/duration";
 import type { AppleMatchResult, AppleMatchStatus, MusicProvider } from "../types";
 import CandidateCard from "./CandidateCard";
+import AgentAttempt from "./AgentAttempt";
 import ProviderBadge from "./ProviderBadge";
 
 const STATUS_STYLE: Record<AppleMatchStatus, string> = {
@@ -145,6 +146,7 @@ export default function ReviewCard({
             : t("noMatch")}
         </button>
       </div>
+      <AgentAttempt result={r} />
       {r.reason && (
         <p className="mb-2 break-words rounded-md bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
           {r.reason}
